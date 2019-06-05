@@ -231,8 +231,9 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
 gboolean create_lock (typHLOG *hl){
   gchar lockfile[256];
 
-  sprintf(lockfile,"%s/.hdslog-%04d%02d%02d.lock",
-	   g_get_home_dir(),hl->fr_year,hl->fr_month,hl->fr_day);
+  sprintf(lockfile,"%s%shdslog-%04d%02d%02d.lock",
+	  g_get_tmp_dir(),G_DIR_SEPARATOR_S, 
+	  hl->fr_year,hl->fr_month,hl->fr_day);
     
   while(1){
     hl->lock_fp=open(lockfile, O_RDWR | O_CREAT | O_EXCL, 0444);
@@ -254,8 +255,9 @@ gboolean create_lock (typHLOG *hl){
 
 static void remove_lock (typHLOG *hl){
   gchar lockfile[256];
-  sprintf(lockfile,"%s/.hdslog-%04d%02d%02d.lock",
-	   g_get_home_dir(),hl->fr_year,hl->fr_month,hl->fr_day);
+  sprintf(lockfile,"%s%shdslog-%04d%02d%02d.lock",
+	  g_get_tmp_dir(), G_DIR_SEPARATOR_S,
+	  hl->fr_year,hl->fr_month,hl->fr_day);
 
   close(hl->lock_fp);
   unlink(lockfile);
@@ -274,13 +276,15 @@ static void wait_lock (typHLOG *hl){
 static void save_note (typHLOG *hl)
 {
   ConfigFile *cfgfile;
-  gchar filename[256];
+  gchar *filename;
   gint i;
 
   create_lock(hl);
 
-  sprintf(filename,"%s/.hdslog-%04d%02d%02d",
-	   g_get_home_dir(),hl->fr_year,hl->fr_month,hl->fr_day);
+  filename=g_strdup_printf("%s%s%s%s.hdslog-%04d%02d%02d",
+			   g_get_home_dir(),G_DIR_SEPARATOR_S,
+			   HDSLOG_DIR, G_DIR_SEPARATOR_S,
+			   hl->fr_year,hl->fr_month,hl->fr_day);
   cfgfile = xmms_cfg_open_file(filename);
   if (!cfgfile)  cfgfile = xmms_cfg_new();
 
@@ -297,6 +301,7 @@ static void save_note (typHLOG *hl)
 
   xmms_cfg_write_file(cfgfile, filename);
   xmms_cfg_free(cfgfile);
+  g_free(filename);
 
   remove_lock(hl);
 }
@@ -310,8 +315,10 @@ static void load_note (typHLOG *hl,gboolean force_fl)
   gint i, i_buf;
   struct stat statbuf;
 
-  sprintf(filename,"%s/.hdslog-%04d%02d%02d",
-	   g_get_home_dir(),hl->fr_year,hl->fr_month,hl->fr_day);
+  sprintf(filename,"%s%s%s%s.hdslog-%04d%02d%02d",
+	  g_get_home_dir(), G_DIR_SEPARATOR_S,
+	  HDSLOG_DIR, G_DIR_SEPARATOR_S,
+	  hl->fr_year,hl->fr_month,hl->fr_day);
 
   if (!force_fl){
     stat(filename,&statbuf);
@@ -411,7 +418,7 @@ void make_top_table(typHLOG *hl){
   gtk_table_set_col_spacings( GTK_TABLE(hl->top_table), 5 );
   gtk_container_set_border_width (GTK_CONTAINER (hl->top_table), 5);
   
-  hbox = gtk_hbox_new(FALSE,2);
+  hbox = gtkut_hbox_new(FALSE,2);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
   gtk_table_attach(GTK_TABLE(hl->top_table), hbox, 0, 1, 0, 1,
 		   GTK_FILL,GTK_SHRINK,0,0);
@@ -472,7 +479,7 @@ void make_top_table(typHLOG *hl){
 		      &hl->scr_flag);
   
 
-  hbox = gtk_hbox_new(FALSE,2);
+  hbox = gtkut_hbox_new(FALSE,2);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
   gtk_table_attach(GTK_TABLE(hl->top_table), hbox, 0, 1, 1, 2,
 		   GTK_FILL,GTK_SHRINK,0,0);
@@ -1234,6 +1241,9 @@ void SendMail(GtkWidget *w, gpointer gdata){
   //	  filename, MAIL_COMMAND, DEF_FROM, sub, hl->mail);
   //  fprintf(stderr,"%s\n",command_line);
   ext_play(command_line);
+  //printf("%s\n",command_line);
+
+  parse_address(hl);
 
   gtk_main_quit();
 
@@ -1260,7 +1270,6 @@ void ext_play(gchar *exe_command)
 void do_mail (GtkWidget *widget, gpointer gdata)
 {
   typHLOG *hl;
-  GtkWidget *dialog;
   GtkWidget *button;
   GtkWidget *label;
   GtkWidget *entry;
@@ -1275,48 +1284,75 @@ void do_mail (GtkWidget *widget, gpointer gdata)
     flagChildDialog=TRUE;
   }
 
-  dialog = gtk_dialog_new();
-  gtk_container_border_width(GTK_CONTAINER(dialog),5);
-  gtk_window_set_title(GTK_WINDOW(dialog),"Send Mail");
+  hl->smdialog = gtk_dialog_new();
+  gtk_container_border_width(GTK_CONTAINER(hl->smdialog),5);
+  gtk_window_set_title(GTK_WINDOW(hl->smdialog),"HDS Log Editor : Send Mail");
+  gtk_window_set_modal(GTK_WINDOW(hl->smdialog),TRUE);
+  gtk_window_set_transient_for(GTK_WINDOW(hl->smdialog),GTK_WINDOW(hl->w_top));
   
-  hbox=gtk_hbox_new(FALSE,0);
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox),
-		     hbox,TRUE,TRUE,0);
+  hbox=gtkut_hbox_new(FALSE,5);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->smdialog))),
+		     hbox,FALSE, FALSE, 0);
 
-  label=gtk_label_new("Mail Adresses");
+  label=gtk_label_new("Mail Addresses");
   gtk_box_pack_start(GTK_BOX(hbox),label,TRUE,TRUE,0);
 
-  entry = gtk_entry_new ();
-  gtk_box_pack_start(GTK_BOX(hbox),entry,TRUE,TRUE,0);
-  gtk_widget_set_usize (entry, entry_height*20, -1);
-  gtk_entry_set_text(GTK_ENTRY(entry),hl->mail);
-  gtk_signal_connect (GTK_OBJECT(entry),
+  hl->address_entry = gtk_entry_new ();
+  gtk_box_pack_start(GTK_BOX(hbox),hl->address_entry,TRUE,TRUE,0);
+  gtk_widget_set_usize (hl->address_entry, entry_height*20, -1);
+  gtk_entry_set_text(GTK_ENTRY(hl->address_entry),hl->mail);
+  gtk_signal_connect (GTK_OBJECT(hl->address_entry),
 		      "changed",
 		      GTK_SIGNAL_FUNC (cc_get_entry),
 		      (gpointer)&hl->mail);
 
 
-  button=gtk_button_new_with_label("Send");
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->action_area),
-		     button,FALSE,FALSE,0);
+  hbox=gtkut_hbox_new(FALSE,5);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->smdialog))),
+		     hbox,FALSE, FALSE, 0);
+
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name("Address Book","x-office-address-book");
+#else
+  button=gtkut_button_new_from_stock("Address Book",GTK_STOCK_PASTE);
+#endif
+  gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
+  gtk_signal_connect(GTK_OBJECT(button),"pressed",
+		     GTK_SIGNAL_FUNC(popup_ml), 
+		     (gpointer)hl);
+
+  label=gtk_label_new("  ");
+  gtk_box_pack_start(GTK_BOX(hbox),label,TRUE,TRUE, 0);
+
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name("Send","mail-send");
+#else
+  button=gtkut_button_new_from_stock("Send",GTK_STOCK_NETWORK);
+#endif
+  gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
   gtk_signal_connect(GTK_OBJECT(button),"pressed",
 		     GTK_SIGNAL_FUNC(SendMail), 
 		     (gpointer)hl);
 
   GTK_WIDGET_SET_FLAGS(button,GTK_CAN_DEFAULT);
 
-  button=gtk_button_new_with_label("Cancel");
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->action_area),
-		     button,FALSE,FALSE,0);
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name("Cancel","process-stop");
+#else
+  button=gtkut_button_new_from_stock("Cancel",GTK_STOCK_CANCEL);
+#endif
+  gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
   gtk_signal_connect(GTK_OBJECT(button),"pressed",
 		     GTK_SIGNAL_FUNC(close_child_dialog), 
-		     GTK_WIDGET(dialog));
+		     GTK_WIDGET(hl->smdialog));
 
   
-  gtk_widget_show_all(dialog);
+  gtk_widget_show_all(hl->smdialog);
   gtk_main();
 
-  gtk_widget_destroy(dialog);
+  gtk_widget_destroy(hl->smdialog);
   flagChildDialog=FALSE;
 }
 
@@ -1575,7 +1611,6 @@ void show_version (GtkWidget *widget, gpointer gdata)
   GtkTextIter iter;
   typHLOG *hl=(typHLOG *) gdata;
   gint result;
-  gchar *tempdir=NULL, *conffile=NULL;
 
   dialog = gtk_dialog_new_with_buttons("HDS Log Editor : About This Program",
 				       GTK_WINDOW(hl->w_top),
@@ -1665,7 +1700,7 @@ void show_version (GtkWidget *widget, gpointer gdata)
  
   
   label = gtk_label_new (NULL);
-  gtk_label_set_markup (GTK_LABEL(label), "&#xA9; 2003  Akito Tajitsu");
+  gtk_label_set_markup (GTK_LABEL(label), "&#xA9; 2005  Akito Tajitsu");
 #ifdef USE_GTK3
   gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
   gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
@@ -1753,6 +1788,7 @@ int main(int argc, char* argv[]){
   time_t t;
   struct tm *tmpt,tmpt2;
   gint i;
+  gchar *filename;
 
   if(argc!=2){
     fprintf(stderr, "[Usage] : %% hdslog data-dir\n");
@@ -1762,6 +1798,14 @@ int main(int argc, char* argv[]){
     fprintf(stderr, " hdslog ERROR : Cannot access to \"%s\".\n", argv[1]);
     exit(-1);
   }
+
+  filename=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,
+		       HDSLOG_DIR, NULL);
+  if(access(filename, F_OK)!=0){
+    fprintf(stderr, "Creating Directory \"%s\".\n",filename);
+    mkdir(filename,(S_IRWXU|S_IRGRP|S_IROTH));
+  }
+  g_free(filename);
 
   hl=g_malloc0(sizeof(typHLOG));
 
@@ -1826,6 +1870,14 @@ int main(int argc, char* argv[]){
     hl->frame[i].note.time=0;
     hl->frame[i].note.auto_fl=FALSE;
   }
+
+  for(i=0;i<MAX_MAIL;i++){
+    hl->ml[i].address=NULL;
+    hl->ml[i].year=0;
+    hl->ml[i].month=0;
+    hl->ml[i].day=0;
+  }
+  hl->ml_max=0;
   
   hl->d_cross_b=DEF_D_CROSS_B;
   hl->d_cross_r=DEF_D_CROSS_R;
@@ -1834,6 +1886,7 @@ int main(int argc, char* argv[]){
   hl->echelle0=DEF_ECHELLE0;
   hl->camz_date=NULL;
 
+  read_ml(hl);
   popup_dl_camz_list(NULL, (gpointer)hl);
   gui_init(hl);
 

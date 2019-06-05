@@ -3,8 +3,8 @@
 #                         Document file                                  #
 #                                                                        # 
 #                                                                        # 
-#                                  ver 0.9.0 2019/06/04                  # 
-#                               Copyright (C) 2003 Akito Tajitsu         #
+#                                  ver 1.0.0 2019/06/04                  # 
+#                               Copyright (C) 2005 Akito Tajitsu         #
 #      Subaru Telescope, National Astronomical Observatory of Japan      #
 #                                               tajitsu_at_naoj.org      # 
 ##########################################################################
@@ -44,8 +44,19 @@ You can copy this file to other directory as you like.
   - % hdslog <your-data-dir.>
 
 
+## Lock File
+   /tmp/hdslog-yyyymmdd.lock
+  will be created during directory scanning.
+
+
+## Log Note File
+   HOME$Log/.hdslog-yyyymmdd
+  will be created.
+  This file remains even after the program finished.
+
+
 ### Copyright ###
-   The code in this distribution is Copyright 2003 by Akito Tajitsu.
+   The code in this distribution is Copyright 2005 by Akito Tajitsu.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

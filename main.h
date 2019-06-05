@@ -39,6 +39,9 @@
 #include "gui.h"
 #include "gtkut.h"
 #include "tree.h"
+#include "mltree.h"
+
+#define HDSLOG_DIR "Log"
 
 //#include "/opt/share/cfitsio/fitsio.h"
 
@@ -69,6 +72,10 @@
 #define DEF_CAMZ_B (-350)
 #define DEF_ECHELLE0 (+880)
 #define ALLOWED_DELTA_CROSS 10
+
+#define MAIL_LIST ".hdslog_mail.lst"
+#define MAX_MAIL 1000
+
 
 #define RANDOMIZE() srand(time(NULL)+getpid())
 #define RANDOM(x)  (rand()%(x))
@@ -194,6 +201,14 @@ struct _NOTEpara{
 };
 
 
+typedef struct _MAILpara MAILpara;
+struct _MAILpara{
+  gchar *address;
+  gint  year;
+  gint  month;
+  gint  day;
+};
+
 typedef struct _FRAMEpara FRAMEpara;
 struct _FRAMEpara{
   gchar *id;
@@ -295,6 +310,8 @@ struct _typHLOG{
 
   FRAMEpara frame[MAX_FRAME];
 
+  MAILpara ml[MAX_MAIL];
+
   gint camz_r;
   gint camz_b;
   gint d_cross_r;
@@ -314,6 +331,18 @@ struct _typHLOG{
   GtkWidget *pdialog;
   GtkWidget *pbar;
   gboolean http_ok;
+
+  GtkWidget *address_entry;
+  GtkWidget *smdialog;
+  GtkWidget *mldialog;
+  GtkWidget *mltree;
+  gint mltree_i;
+  gint ml_max;
+  GtkWidget *mltree_search_label;
+  gchar *mltree_search_text;
+  gint mltree_search_imax;
+  gint mltree_search_i;
+  gint mltree_search_iaddr[MAX_MAIL];
 };
 
 

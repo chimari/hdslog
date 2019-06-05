@@ -1,6 +1,6 @@
 bin_PROGRAMS    = hdslog
 hdslog_SOURCES   =\
-	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c
+	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c mltree.h
 INCLUDES        = @CFITSIO_CFLAGS@ @GTK_CFLAGS@
 LDADD           = @CFITSIO_LIBS@ @GTK_LIBS@ 
 
