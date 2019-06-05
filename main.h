@@ -21,12 +21,54 @@
 #include<string.h>
 
 #include <fitsio.h>
+#include <math.h>
+
+#include <sys/socket.h>
+#include <netdb.h>
+#include <openssl/crypto.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#if HAVE_SYS_UTSNAME_H
+#include <sys/utsname.h>
+#endif
+
+
+#include "gui.h"
+#include "gtkut.h"
+#include "tree.h"
+
 //#include "/opt/share/cfitsio/fitsio.h"
 
 //#define SND_CMD "cat /opt/share/hds/kakunin.au > /dev/audio"
 #define SND_CMD "/usr/bin/audioplay /opt/share/hds/au/%s"
 
-#define DELTA_CROSS (+130)
+#define HTTP_CAMZ_HOST "hds.skr.jp"
+#define HTTP_CAMZ_PATH  "/CamZ"
+#define HTTP_CAMZ_FILE "hdslog_camz.txt"
+#define HTTP_DLSZ_FILE   "hdslog_http_dlsz.txt"
+
+#ifdef SIGRTMIN
+#define SIGHTTPDL SIGRTMIN+1
+#else
+#define SIGHTTPDL SIGUSR2
+#endif
+
+#define HDSLOG_HTTP_ERROR_GETHOST  -1
+#define HDSLOG_HTTP_ERROR_SOCKET   -2
+#define HDSLOG_HTTP_ERROR_CONNECT  -3
+#define HDSLOG_HTTP_ERROR_TEMPFILE -4
+#define HDSLOG_HTTP_ERROR_SSL -5
+#define HDSLOG_HTTP_ERROR_FORK -6
+
+#define DEF_D_CROSS_R (+130)
+#define DEF_D_CROSS_B (+130)
+#define DEF_CAMZ_R (-325)
+#define DEF_CAMZ_B (-350)
+#define DEF_ECHELLE0 (+880)
+#define ALLOWED_DELTA_CROSS 10
 
 #define RANDOMIZE() srand(time(NULL)+getpid())
 #define RANDOM(x)  (rand()%(x))
@@ -47,15 +89,100 @@ enum{ FILE_HDSA, FILE_hds} FileHead;
 
 
 // Color for GUI
-GdkColor red   = {0, 0xffff, 0x0000, 0x0000};
-GdkColor black = {0, 0x0000, 0x0000, 0x0000};
+#ifdef USE_GTK3
+static GdkRGBA color_comment = {0.87, 0.00, 0.00, 1};
+static GdkRGBA color_comp  =   {0.48, 0.09, 0.84, 1};
+static GdkRGBA color_flat  =   {0.89, 0.36, 0.00, 1};
+static GdkRGBA color_bias  =   {0.25, 0.25, 0.25, 1};
+static GdkRGBA color_focus =   {0.53, 0.27, 0.00, 1};
+static GdkRGBA color_calib =   {0.00, 0.53, 0.00, 1};
+static GdkRGBA color_black =   {0.00, 0.00, 0.00, 1};
+static GdkRGBA color_red   =   {1.00, 0.00, 0.00, 1};
+static GdkRGBA color_blue =    {0.00, 0.00, 1.00, 1};
+static GdkRGBA color_white =   {1.00, 1.00, 1.00, 1};
+static GdkRGBA color_gray1 =   {0.40, 0.40, 0.40, 1};
+static GdkRGBA color_gray2 =   {0.80, 0.80, 0.80, 1};
+static GdkRGBA color_pink =    {1.00, 0.40, 0.40, 1};
+static GdkRGBA color_pink2 =   {1.00, 0.80, 0.80, 1};
+static GdkRGBA color_pale =    {0.40, 0.40, 1.00, 1};
+static GdkRGBA color_pale2 =   {0.80, 0.80, 1.00, 1};
+static GdkRGBA color_pale3 =   {0.90, 0.90, 1.00, 1};
+static GdkRGBA color_yellow3 = {1.00, 1.00, 0.90, 1};
+static GdkRGBA color_orange =  {1.00, 0.80, 0.40, 1};
+static GdkRGBA color_orange2 = {1.00, 1.00, 0.80, 1};
+static GdkRGBA color_orange3 = {0.95, 0.45, 0.02, 1};
+static GdkRGBA color_green  =  {0.40, 0.80, 0.80, 1};
+static GdkRGBA color_green2 =  {0.80, 1.00, 0.80, 1};
+static GdkRGBA color_purple2 = {1.00, 0.80, 1.00, 1};
+static GdkRGBA color_com1 =    {0.00, 0.53, 0.00, 1};
+static GdkRGBA color_com2 =    {0.73, 0.53, 0.00, 1};
+static GdkRGBA color_com3 =    {0.87, 0.00, 0.00, 1};
+static GdkRGBA color_lblue =   {0.80, 0.80, 1.00, 1};
+static GdkRGBA color_lgreen =  {0.80, 1.00, 0.80, 1};
+static GdkRGBA color_lorange=  {1.00, 0.90, 0.70, 1};
+static GdkRGBA color_lred   =  {1.00, 0.80, 0.80, 1};
+#else
+static GdkColor color_comp =    {0, 0x7A00, 0x0000, 0xD500};
+static GdkColor color_flat =    {0, 0xE300, 0x5C00, 0x0000};
+static GdkColor color_bias =    {0, 0x8000, 0x8000, 0x8000};
+static GdkColor color_comment = {0, 0xDDDD, 0x0000, 0x0000};
+static GdkColor color_focus = {0, 0x8888, 0x4444, 0x0000};
+static GdkColor color_calib = {0, 0x0000, 0x8888, 0x0000};
+static GdkColor color_black = {0, 0, 0, 0};
+static GdkColor color_red   = {0, 0xFFFF, 0, 0};
+static GdkColor color_blue = {0, 0, 0, 0xFFFF};
+static GdkColor color_white = {0, 0xFFFF, 0xFFFF, 0xFFFF};
+static GdkColor color_gray1 = {0, 0x6666, 0x6666, 0x6666};
+static GdkColor color_gray2 = {0, 0xBBBB, 0xBBBB, 0xBBBB};
+static GdkColor color_pink = {0, 0xFFFF, 0x6666, 0x6666};
+static GdkColor color_pink2 = {0, 0xFFFF, 0xCCCC, 0xCCCC};
+static GdkColor color_pale = {0, 0x6666, 0x6666, 0xFFFF};
+static GdkColor color_pale2 = {0, 0xCCCC, 0xCCCC, 0xFFFF};
+static GdkColor color_pale3 = {0, 0xEEEE, 0xEEEE, 0xFFFF};
+static GdkColor color_yellow3 = {0, 0xFFFF, 0xFFFF, 0xEEEE};
+static GdkColor color_orange = {0, 0xFFFF, 0xCCCC, 0x6666};
+static GdkColor color_orange2 = {0, 0xFFFF, 0xFFFF, 0xCCCC};
+static GdkColor color_orange3 = {0, 0xFD00, 0x6A00, 0x0200};
+static GdkColor color_green = {0, 0x6666, 0xCCCC, 0x6666};
+static GdkColor color_green2 = {0, 0xCCCC, 0xFFFF, 0xCCCC};
+static GdkColor color_purple2 = {0, 0xFFFF, 0xCCCC, 0xFFFF};
+static GdkColor color_com1 = {0, 0x0000, 0x8888, 0x0000};
+static GdkColor color_com2 = {0, 0xBBBB, 0x8888, 0x0000};
+static GdkColor color_com3 = {0, 0xDDDD, 0x0000, 0x0000};
+static GdkColor color_lblue = {0, 0xBBBB, 0xBBBB, 0xFFFF};
+static GdkColor color_lgreen= {0, 0xBBBB, 0xFFFF, 0xBBBB};
+static GdkColor color_lorange={0, 0xFFFF, 0xCCCC, 0xAAAA};
+static GdkColor color_lred=   {0, 0xFFFF, 0xBBBB, 0xBBBB};
+#endif
+
+
+static const gchar* cal_month[]={"Jan",
+				 "Feb",
+				 "Mar",
+				 "Apr",
+				 "May",
+				 "Jun",
+				 "Jul",
+				 "Aug",
+				 "Sep",
+				 "Oct",
+				 "Nov",
+				 "Dec"};
+
+static const gchar* day_name[]={"Sun",
+				"Mon",
+				"Tue",
+				"Wed",
+				"Thu",
+				"Fri",
+				"Sat"};
 
 
 typedef struct _SetupEntry SetupEntry;
 struct _SetupEntry{
   gchar *initial;
   gchar *cross;
-  gfloat   cross_scan;
+  gdouble   cross_scan;
 };
 
 
@@ -78,16 +205,18 @@ struct _FRAMEpara{
 
   gchar *hst;
 
-  gfloat secz;
+  gdouble secz;
 
   gchar *fil1;
   gchar *fil2;
 
-  gfloat slt_wid;
-  gfloat slt_len;
+  gdouble slt_wid;
+  gdouble slt_len;
 
-  gfloat crotan;
+  gdouble crotan;
   gchar *crossd;
+
+  gdouble erotan;
 
   glong bin1;
   glong bin2;
@@ -99,7 +228,7 @@ struct _FRAMEpara{
 
   gchar *setup;
 
-  gfloat slt_pa;
+  gdouble slt_pa;
   gchar *adc;
   gchar *imr;
 
@@ -151,6 +280,8 @@ struct _typHLOG{
   time_t seek_time;
   time_t to_time;
 
+  gboolean ech_tmpfl;
+  gboolean ech_flag;
   gboolean i2_tmpfl;
   gboolean i2_flag;
   gboolean is_tmpfl;
@@ -164,8 +295,30 @@ struct _typHLOG{
 
   FRAMEpara frame[MAX_FRAME];
 
-  gint d_cross;
+  gint camz_r;
+  gint camz_b;
+  gint d_cross_r;
+  gint d_cross_b;
+  gint echelle0;
+  gchar *camz_date;
+
+  GtkWidget *fr_e;
+
+  GtkWidget *frame_tree;
+  gint frame_tree_i;
+
+  gchar *http_host;
+  gchar *http_path;
+  gchar *http_dlfile;
+  glong http_dlsz;
+  GtkWidget *pdialog;
+  GtkWidget *pbar;
+  gboolean http_ok;
 };
 
 
+pid_t http_pid;
 
+gchar *fgets_new();
+
+void popup_dl_camz_list();

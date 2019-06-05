@@ -1,0 +1,71 @@
+##########################################################################
+#   Subaru HDS Log Eeditor  (hdslog)                                     #
+#                         Document file                                  #
+#                                                                        # 
+#                                                                        # 
+#                                  ver 0.9.0 2019/06/04                  # 
+#                               Copyright (C) 2003 Akito Tajitsu         #
+#      Subaru Telescope, National Astronomical Observatory of Japan      #
+#                                               tajitsu_at_naoj.org      # 
+##########################################################################
+
+
+### Introduction ###
+Subaru HDS Log Editor (hdslog) is a program to show /edit /mail
+observation logs of High Dispersion Spectrograph (HDS) of
+8.2-m Subaru Telescope, NAOJ.
+
+ You can make a clone of the latest version of its source code
+via Git Hub, using
+  git clone https://github.com/chimari/hdslog.git
+in your terminal.
+
+
+### Environment ###
+This program is running under UNIX OSs with X window systems.
+Gtk+2 (or 3 in near future) is required.
+You need to use mutt with msmtp (recommended) to send logs via e-mail.
+
+
+### How to Make (for UNIX, Linux & Solaris) ###
+  - Extract archives, go to the extracted directory.
+
+  - (Only if you cloned the source code via GitHub)
+    % touch configure configure.ac aclocal.m4 Makefile.am Makefile.in
+
+  - % ./configure
+
+  - % make
+
+Then, an executable file "hdslog" should be built.
+You can copy this file to other directory as you like.
+
+## How to Run
+  - % hdslog <your-data-dir.>
+
+
+### Copyright ###
+   The code in this distribution is Copyright 2003 by Akito Tajitsu.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+   In addition, as a special exception, A.Tajitsu gives permission to link 
+   this code of this program with the OpenSSL library (or with modified
+   versions of OpenSSL that use the same license as OpenSSL), and distribute
+   linked combinations including the two. You must obey the GNU General 
+   Public License in all respects for all of the code used other than OpenSSL.
+   If you modify this file, you may extend this exception to your version of 
+   the file, but you are not obligated to do so. If you do not wish to do so,
+   delete this exception statement from your version.

@@ -4,9 +4,9 @@ PACKAGE=hdslog
 
 dnl version number
 MAJOR_VERSION=0
-MINOR_VERSION=3
-MICRO_VERSION=2
-EXTRA_VERSION=-20110913
+MINOR_VERSION=9
+MICRO_VERSION=0
+EXTRA_VERSION=-20190604
 VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION$EXTRA_VERSION
 
 dnl set $target
@@ -25,13 +25,6 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
-dnl Gtk+
-AC_ARG_WITH(gtk1,
-		 AC_HELP_STRING([--with-gtk1],
-		            [use Gtk+1.2 instead of Gtk+2]),
-			    [use_gtk1=yes])
-             
-
 dnl if test x"${use_gtk1}" = "xyes"; then
 dnl AM_PATH_GLIB(1.2.6,,
 dnl        AC_MSG_ERROR(Test for GLIB failed. See the file 'INSTALL' for help.),
@@ -43,6 +36,18 @@ AM_PATH_GLIB_2_0(2.0.0,, AC_MSG_ERROR([glib-2.x is required]), gthread gobject)
 AM_PATH_GTK_2_0(2.0.0,, AC_MSG_ERROR([gtk+-2.x is required]), gthread gobject)
 AC_DEFINE([USE_GTK2],[],[Use Gtk+2.x instead of Gtk+1.2])
 dnl fi
+
+dnl Check for OpenSSL
+	PKG_CHECK_MODULES(OPENSSL, openssl, [:], [:])
+	if test "x$OPENSSL_LIBS" != "x"; then
+		CFLAGS="$CFLAGS $OPENSSL_CFLAGS"
+		LIBS="$LIBS $OPENSSL_LIBS"
+		AC_MSG_CHECKING([if openssl is available])
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(USE_SSL, 1, Define if you use OpenSSL to support SSL.)
+	else
+                AC_MSG_ERROR([OpenSSL is required.])
+	fi
 
 dnl cfitsio
 AC_ARG_WITH(cfitsio,
@@ -75,6 +80,7 @@ fi
 AC_SUBST(CFITSIO_LIBS)
 AC_SUBST(CFITSIO_CFLAGS)
 
+AC_CHECK_HEADERS([pwd.h sys/utsname.h])
 
 AC_OUTPUT([
 Makefile

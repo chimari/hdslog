@@ -29,13 +29,14 @@ static void load_note ();
 
 void select_color();
 void make_frame_list();
+void update_frame_tree();
 void update_frame_list();
 int printfits();
 void ext_play();
 gint scan_command();
 gint printdir();
 void gui_init();
-
+void show_version();
 
 // Ya is temporary (using Yb setting)
 const SetupEntry setups[] = {
@@ -56,6 +57,50 @@ const SetupEntry setups[] = {
   {"StdNIRa","RED",   25200}, 
   {"StdHa",  "MIRROR",0}
 };
+
+
+gchar *fgets_new(FILE *fp){
+  gint c;
+  gint i=0, j=0;
+  gchar *dbuf=NULL;
+
+  do{
+    i=0;
+    while(!feof(fp)){
+      c=fgetc(fp);
+      if((c==0x00)||(c==0x0a)||(c==0x0d)) break;
+      i++;
+    }
+  }while((i==0)&&(!feof(fp)));
+  if(feof(fp)){
+    if(fseek(fp,(long)(-i+1),SEEK_CUR)!=0) return(NULL);
+  }
+  else{
+    if(fseek(fp,(long)(-i-1),SEEK_CUR)!=0) return(NULL);
+  }
+
+  if((dbuf = (gchar *)g_malloc(sizeof(gchar)*(i+2)))==NULL){
+    fprintf(stderr, "!!! Memory allocation error in fgets_new().\n");
+    fflush(stderr);
+    return(NULL);
+  }
+  if(fread(dbuf,1, i, fp)){
+    while( (c=fgetc(fp)) !=EOF){
+      if((c==0x00)||(c==0x0a)||(c==0x0d))j++;
+      else break;
+    }
+    if(c!=EOF){
+      if(fseek(fp,-1L,SEEK_CUR)!=0) return(NULL);
+    }
+    dbuf[i]=0x00;
+    //printf("%s\n",dbuf);
+    return(dbuf);
+  }
+  else{
+    return(NULL);
+  }
+  
+}
 
 
 void ChildTerm(int dummy){
@@ -170,13 +215,15 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
   hl->num=0;
   hl->num_old=0;
 
+  hl->ech_flag=hl->ech_tmpfl;
   hl->i2_flag=hl->i2_tmpfl;
   hl->is_flag=hl->is_tmpfl;
   hl->camz_flag=hl->camz_tmpfl;
   hl->imr_flag=hl->imr_tmpfl;
   hl->adc_flag=hl->adc_tmpfl;
 
-  make_frame_list(hl);
+  //make_frame_list(hl);
+  make_frame_tree(hl);
   
   gtk_widget_set_sensitive(hl->b_refresh,TRUE);
 }
@@ -192,11 +239,11 @@ gboolean create_lock (typHLOG *hl){
     if (hl->lock_fp == -1){
       printf ("%d - Lock already present\n",getpid());
       //return(FALSE);
-      change_label(hl->w_status, "File Lock", red);
+      change_label(hl->w_status, "File Lock", color_red);
       sleep(1);
     }
     else{
-      change_label(hl->w_status, "Scanning...", black);
+      change_label(hl->w_status, "Scanning...", color_black);
       hl->lock_flag=TRUE;
       //return(TRUE);
       break;
@@ -217,7 +264,7 @@ static void remove_lock (typHLOG *hl){
 
 static void wait_lock (typHLOG *hl){
   while(hl->lock_flag){
-    change_label(hl->w_status, "File Lock", red);
+    change_label(hl->w_status, "File Lock", color_red);
     sleep(1);
   }
 }
@@ -287,8 +334,8 @@ static void load_note (typHLOG *hl,gboolean force_fl)
 
 	    if( (hl->frame[i].note.txt) && (!force_fl)){
 	      hl->frame[i].note.auto_fl=TRUE;
-	      gtk_entry_set_text(GTK_ENTRY(hl->frame[i].w_note),
-				 hl->frame[i].note.txt);
+	      //gtk_entry_set_text(GTK_ENTRY(hl->frame[i].w_note),
+	      //		 hl->frame[i].note.txt);
 	      //printf("Writing %s  to  %s\n",hl->frame[i].note.txt,
  	      //     hl->frame[i].id);
 	    }
@@ -305,17 +352,37 @@ static void load_note (typHLOG *hl,gboolean force_fl)
 }
 
 
-void select_color(FRAMEpara *frame, gint d_cross){
+// Checking Stardard Setups
+void select_color(FRAMEpara *frame, gint d_cross_b, gint d_cross_r){
   int i_set;
   gchar tmp[32];
 
-  for(i_set=StdUb;i_set<=StdHa;i_set++){
+  // Blue
+  for(i_set=StdUb;i_set<=StdYa;i_set++){
     if(!strcmp(setups[i_set].cross,frame->crossd)){
-      if( (((frame->crotan-d_cross)-setups[i_set].cross_scan)> -10)
-	  && ((frame->crotan-d_cross)-setups[i_set].cross_scan)< 10) {
+      if( fabs((gdouble)((frame->crotan-d_cross_b)-setups[i_set].cross_scan)) 
+	  < ALLOWED_DELTA_CROSS) {
 	frame->setup=g_strdup(setups[i_set].initial);
 	return;
       }
+    }
+  }
+  // Red
+  for(i_set=StdI2b;i_set<=StdNIRa;i_set++){
+    if(!strcmp(setups[i_set].cross,frame->crossd)){
+      if( fabs((gdouble)((frame->crotan-d_cross_r)-setups[i_set].cross_scan)) 
+	  < ALLOWED_DELTA_CROSS) {
+	frame->setup=g_strdup(setups[i_set].initial);
+	return;
+      }
+    }
+  }
+  // Mirror
+  if(!strcmp(setups[StdHa].cross,frame->crossd)){
+    if( fabs((gdouble)((frame->crotan)-setups[StdHa].cross_scan)) 
+	< ALLOWED_DELTA_CROSS) {
+      frame->setup=g_strdup(setups[StdHa].initial);
+      return;
     }
   }
   
@@ -332,6 +399,7 @@ void make_top_table(typHLOG *hl){
   GtkAdjustment *adj;
   GtkWidget *spinner;
   GtkWidget *check;
+  GtkWidget *button;
   int col=0;
   
 
@@ -348,7 +416,7 @@ void make_top_table(typHLOG *hl){
   gtk_table_attach(GTK_TABLE(hl->top_table), hbox, 0, 1, 0, 1,
 		   GTK_FILL,GTK_SHRINK,0,0);
 
-  label = gtk_label_new ("Current/Next : ");
+  label = gtk_label_new ("Current/Next");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
 
   combo = gtk_combo_new();
@@ -379,7 +447,6 @@ void make_top_table(typHLOG *hl){
 		      GTK_SIGNAL_FUNC (cc_file_head),
 		      &hl->file_head);
 
-
   // Next ID
   hl->e_next = gtk_entry_new ();
   gtk_entry_set_editable(GTK_ENTRY(hl->e_next), FALSE);
@@ -409,6 +476,41 @@ void make_top_table(typHLOG *hl){
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
   gtk_table_attach(GTK_TABLE(hl->top_table), hbox, 0, 1, 1, 2,
 		   GTK_FILL,GTK_SHRINK,0,0);
+
+  label = gtk_label_new ("Date");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  hl->fr_e = gtk_entry_new();
+  gtk_box_pack_start(GTK_BOX(hbox),hl->fr_e,FALSE,FALSE,0);
+  gtk_editable_set_editable(GTK_EDITABLE(hl->fr_e),FALSE);
+  gtk_entry_set_width_chars(GTK_ENTRY(hl->fr_e),12);
+
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name(NULL,"go-down");
+#else
+  button=gtkut_button_new_from_stock(NULL,GTK_STOCK_GO_DOWN);
+#endif
+  gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
+  g_signal_connect(G_OBJECT(button),"pressed",
+		   G_CALLBACK(popup_fr_calendar), 
+		   (gpointer)hl);
+#ifdef __GTK_TOOLTIP_H__
+  gtk_widget_set_tooltip_text(button,"Doublue-Click on calendar to select a new date");
+#endif
+
+  set_fr_e_date(hl);
+
+  label = gtk_label_new ("  ");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  check = gtk_check_button_new_with_label("Ech.");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  if(hl->ech_tmpfl){
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
+  }
+  gtk_signal_connect (GTK_OBJECT (check), "toggled",
+		      GTK_SIGNAL_FUNC (cc_get_toggle),
+		      &hl->ech_tmpfl);
 
   check = gtk_check_button_new_with_label("I2");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
@@ -456,9 +558,7 @@ void make_top_table(typHLOG *hl){
 		      &hl->adc_tmpfl);
   
 
-  label = gtk_label_new ("Date : ");
-  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
-
+  /*
   adj = (GtkAdjustment *)gtk_adjustment_new(hl->buf_year,
 					    2000, hl->buf_year+10,
 					    1.0, 1.0, 0);
@@ -495,28 +595,53 @@ void make_top_table(typHLOG *hl){
   gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
   		      GTK_SIGNAL_FUNC (cc_get_adj),
   		      &hl->buf_day);
+  */
 
-  label = gtk_label_new ("  dCross : ");
+  label = gtkut_label_new ("  &#x394;Cross <span color=\"#0000FF\">B</span>");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
 
-  adj = (GtkAdjustment *)gtk_adjustment_new(hl->d_cross,
+  adj = (GtkAdjustment *)gtk_adjustment_new(hl->d_cross_b,
 					    -1000, 1000,
 					    1.0, 1.0, 0);
   spinner =  gtk_spin_button_new (adj, 0, 0);
   gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
   gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
-			 FALSE);
+			 TRUE);
   gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
   gtk_widget_set_usize (spinner, entry_height*2.5, -1);
   gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
   		      GTK_SIGNAL_FUNC (cc_get_adj),
-  		      &hl->d_cross);
+  		      &hl->d_cross_b);
 
-  hl->b_refresh=gtk_button_new_with_label("Refresh");
+  label = gtkut_label_new ("  <span color=\"#FF0000\">R</span>");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new(hl->d_cross_r,
+					    -1000, 1000,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
+			 TRUE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  gtk_widget_set_usize (spinner, entry_height*2.5, -1);
+  gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
+  		      GTK_SIGNAL_FUNC (cc_get_adj),
+  		      &hl->d_cross_r);
+
+#ifdef USE_GTK3
+  hl->b_refresh=gtkut_button_new_from_icon_name(NULL,"view-refresh");
+#else
+  hl->b_refresh=gtkut_button_new_from_stock(NULL,GTK_STOCK_REFRESH);
+#endif
   gtk_box_pack_start(GTK_BOX(hbox),hl->b_refresh,FALSE,FALSE,0);
   gtk_signal_connect(GTK_OBJECT(hl->b_refresh),"clicked", 
 		     GTK_SIGNAL_FUNC(refresh_table), 
 		     (gpointer)hl);
+#ifdef __GTK_TOOLTIP_H__
+  gtk_widget_set_tooltip_text(hl->b_refresh,
+			      "Set Date & flags, then Remake table");
+#endif
 
 
   hl->w_status = gtk_label_new ("Starting...");
@@ -642,6 +767,36 @@ void make_frame_list(typHLOG *hl){
 }
 
 
+void update_frame_tree(typHLOG *hl){
+  int i, col=0;
+  GtkTreeIter iter;
+  GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
+  GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
+  GtkTreePath *path;
+
+#ifdef DEBUG
+  fprintf(stderr, "Start Load\n");
+#endif
+  if((hl->num_old==0)&&(hl->num!=0)){
+    load_note(hl,TRUE);
+  }
+  else{
+    load_note(hl,FALSE);
+  }
+#ifdef DEBUG
+  fprintf(stderr, "End Load\n");
+#endif
+
+  if(hl->num_old==hl->num){
+  return;
+  }
+  
+  for(i=hl->num_old;i<hl->num;i++){
+    gtk_list_store_insert (GTK_LIST_STORE (model), &iter, i);
+    frame_tree_update_item(hl, GTK_TREE_MODEL(model), iter, i);
+  }  
+}
+
 void update_frame_list(typHLOG *hl){
   int i, col=0;
   GtkWidget *label;
@@ -704,7 +859,7 @@ void update_frame_list(typHLOG *hl){
     col++;
 
     // SECZ
-    sprintf(tmp,"%4.2f",hl->frame[i].secz);
+    sprintf(tmp,"%4.2lf",hl->frame[i].secz);
     label = gtk_label_new (tmp);
     gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
     gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
@@ -720,7 +875,7 @@ void update_frame_list(typHLOG *hl){
     col++;
 
     // SLIT
-    sprintf(tmp,"%4.2fx%5.2f",hl->frame[i].slt_wid,hl->frame[i].slt_len);
+    sprintf(tmp,"%4.2lfx%5.2lf",hl->frame[i].slt_wid,hl->frame[i].slt_len);
     label = gtk_label_new (tmp);
     gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
     gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
@@ -778,7 +933,7 @@ void update_frame_list(typHLOG *hl){
 		       GTK_FILL,GTK_SHRINK,0,0);
       col++;
 
-      sprintf(tmp,"%+6.2f",hl->frame[i].slt_pa);
+      sprintf(tmp,"%+6.2lf",hl->frame[i].slt_pa);
       label = gtk_label_new (tmp);
       gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
       gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
@@ -831,11 +986,9 @@ void update_frame_list(typHLOG *hl){
 
   if(hl->scr_flag){
     gtk_adjustment_set_value(
-     gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin)),
-     gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->upper-gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->page_size);
+         gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin)),
+      gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->upper-gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->page_size);
   }
-
-  gtk_widget_show_all(frame_table);
 }
 
 int npcmp(FRAMEpara *x, FRAMEpara *y){
@@ -860,11 +1013,12 @@ int printfits(typHLOG *hl, char *inf){
   char adc[32];
   char *cp;
   long is, isslic;
-  float iswid;
+  gdouble iswid;
   long det_id;
-  float exptime,slt_wid,slt_len,crotan,camz,slt_pa;
+  gdouble exptime,slt_wid,slt_len,crotan,camz,slt_pa;
   static char last_frame_id[256];
   int ret=0;
+  float f_buf;
 
 
   fits_open_file(&fptr, inf, READONLY, &status);
@@ -900,15 +1054,16 @@ int printfits(typHLOG *hl, char *inf){
     }
     hl->frame[hl->num].name=g_strdup(obj_name);
 
-    fits_read_key_flt(fptr, "EXPTIME", &exptime, 0, &status);
-    hl->frame[hl->num].exp=(guint)exptime;
+    fits_read_key_flt(fptr, "EXPTIME", &f_buf, 0, &status);
+    hl->frame[hl->num].exp=(guint)f_buf;
 
     fits_read_key_str(fptr, "HST-STR", hst_str, 0, &status);
     strncpy(hst,hst_str,5);
     hst[5]='\0';
     hl->frame[hl->num].hst=g_strdup(hst);
 
-    fits_read_key_flt(fptr, "SECZ", &hl->frame[hl->num].secz, 0, &status);
+    fits_read_key_flt(fptr, "SECZ", &f_buf, 0, &status);
+    hl->frame[hl->num].secz=(gdouble)f_buf;
 
     fits_read_key_str(fptr, "FILTER01", filter01, 0, &status);
     hl->frame[hl->num].fil1=g_strdup(filter01);
@@ -916,26 +1071,29 @@ int printfits(typHLOG *hl, char *inf){
     fits_read_key_str(fptr, "FILTER02", filter02, 0, &status);
     hl->frame[hl->num].fil2=g_strdup(filter02);
 
-    fits_read_key_flt(fptr, "SLT-WID", &slt_wid, 0, &status);
-    hl->frame[hl->num].slt_wid=(slt_wid*2);
+    fits_read_key_flt(fptr, "SLT-WID", &f_buf, 0, &status);
+    hl->frame[hl->num].slt_wid=((gdouble)f_buf*2);
 
-    fits_read_key_flt(fptr, "SLT-LEN", &slt_len, 0, &status);
-    hl->frame[hl->num].slt_len=(slt_len*2);
+    fits_read_key_flt(fptr, "SLT-LEN", &f_buf, 0, &status);
+    hl->frame[hl->num].slt_len=((gdouble)f_buf*2);
     
-    fits_read_key_flt(fptr, "H_CROTAN", &crotan, 0, &status);
-    hl->frame[hl->num].crotan=(crotan*3600);
+    fits_read_key_flt(fptr, "H_CROTAN", &f_buf, 0, &status);
+    hl->frame[hl->num].crotan=((gdouble)f_buf*3600.);
     
     fits_read_key_str(fptr, "H_CROSSD", crossd, 0, &status);
     hl->frame[hl->num].crossd=g_strdup(crossd);
 
+    // Standard or Non-Standard
+    select_color(&hl->frame[hl->num], hl->d_cross_b, hl->d_cross_r);
 
-    select_color(&hl->frame[hl->num], hl->d_cross);
+    fits_read_key_flt(fptr, "H_EROTAN", &f_buf, 0, &status);
+    hl->frame[hl->num].erotan=((gdouble)f_buf*3600.);
 
     fits_read_key_lng(fptr, "BIN-FCT1", &hl->frame[hl->num].bin1, 0, &status);
     fits_read_key_lng(fptr, "BIN-FCT2", &hl->frame[hl->num].bin2, 0, &status);
 
-    fits_read_key_flt(fptr, "H_FOCUS", &camz, 0, &status);
-    hl->frame[hl->num].camz=(gint)(camz*1000);
+    fits_read_key_flt(fptr, "H_FOCUS", &f_buf, 0, &status);
+    hl->frame[hl->num].camz=(gint)(f_buf*1000);
 
     fits_read_key_str(fptr, "H_I2POS", i2, 0, &status);
     hl->frame[hl->num].i2=g_strdup(i2);
@@ -948,16 +1106,18 @@ int printfits(typHLOG *hl, char *inf){
 	hl->frame[hl->num].is=g_strdup("NONE   ");
       }
       else{
-	fits_read_key_flt(fptr, "H_ISWID", &iswid, 0, &status);
+	fits_read_key_flt(fptr, "H_ISWID", &f_buf, 0, &status);
+	iswid=(gdouble)f_buf;
 	fits_read_key_lng(fptr, "H_ISSLIC", &isslic, 0, &status);
-	hl->frame[hl->num].is=g_strdup_printf("%4.2fx%d ",(float)iswid*2.,(int)isslic);
+	hl->frame[hl->num].is=g_strdup_printf("%4.2lfx%d ",(gdouble)iswid*2.,(int)isslic);
       }
     }
     else{
       hl->frame[hl->num].is=g_strdup("UNKNOWN");
     }
 
-    fits_read_key_flt(fptr, "SLT-PA", &hl->frame[hl->num].slt_pa, 0, &status);
+    fits_read_key_flt(fptr, "SLT-PA", &f_buf, 0, &status);
+    hl->frame[hl->num].slt_pa=(gdouble)f_buf;
     
     fits_read_key_str(fptr, "ADC-TYPE", adc, 0, &status);
     hl->frame[hl->num].adc=g_strdup(adc);
@@ -1032,7 +1192,7 @@ void SendMail(GtkWidget *w, gpointer gdata){
 
   for(i=0;i<hl->num;i++){
     
-    fprintf(fp,"%4d. %-15s %-20s %5s %4ds %4.2f %6s/%6s %4.2f/%5.2f %12s %1dx%1d",
+    fprintf(fp,"%4d. %-15s %-20s %5s %4ds %4.2lf %6s/%6s %4.2lf/%5.2lf %12s %1dx%1d",
 	    i+1,
 	    hl->frame[i].id,
 	    hl->frame[i].name,
@@ -1053,7 +1213,7 @@ void SendMail(GtkWidget *w, gpointer gdata){
       fprintf(fp," %-7s",hl->frame[i].is);
     }
     if(hl->imr_flag){
-      fprintf(fp," %-4s %+6.2f",hl->frame[i].imr,hl->frame[i].slt_pa);
+      fprintf(fp," %-4s %+6.2lf",hl->frame[i].imr,hl->frame[i].slt_pa);
     }
     if(hl->adc_flag){
       fprintf(fp," %-3s",hl->frame[i].adc);
@@ -1097,7 +1257,7 @@ void ext_play(gchar *exe_command)
 }
 
 
-void do_mail (gpointer gdata, guint callback_action, GtkWidget *widget)
+void do_mail (GtkWidget *widget, gpointer gdata)
 {
   typHLOG *hl;
   GtkWidget *dialog;
@@ -1178,13 +1338,15 @@ gint scan_command(gpointer gdata){
 }
 
 gint printdir(typHLOG *hl){
+  GtkTreeIter iter;
   DIR *dp;
   struct dirent *entry;
   struct stat statbuf;
   int newflag=0;
   int i,n;
+  GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
 
-  change_label(hl->w_status, "Scanning...", black);
+  change_label(hl->w_status, "Scanning...", color_black);
 
   
   if((dp = opendir(hl->data_dir)) == NULL){
@@ -1246,10 +1408,15 @@ gint printdir(typHLOG *hl){
   
   hl->seek_time=time(NULL);
   
-  update_frame_list(hl);
+  //update_frame_list(hl);
+  update_frame_tree(hl);
   hl->num_old=hl->num;
 
-  change_label(hl->w_status, "", black);
+  change_label(hl->w_status, "", color_black);
+  
+  if(hl->scr_flag){
+    frame_tree_select_last(hl);
+  }
 
 #ifdef DEBUG
   fprintf(stderr, "End of Read: %s\n",hl->data_dir);
@@ -1257,37 +1424,106 @@ gint printdir(typHLOG *hl){
 
 }
 
-void do_quit (gpointer gdata, guint callback_action, GtkWidget *widget)
+void do_quit (GtkWidget *widget)
 {
   gtk_main_quit();
 }
 
 GtkWidget *make_menu(typHLOG *hl){
-  GtkAccelGroup *accel_group;
-  GtkItemFactory *item_factory;
-  GtkItemFactoryEntry menu_items[] = {
-    {"/_File", NULL, NULL, 0, "<Branch>"},
-    {"/File/Mail", "<control>M", do_mail, 0, NULL},
-    {"/File/sep1", NULL, NULL, 0, "<Separator>"},
-    {"/File/Quit", "<control>Q", do_quit, 0, NULL}
-  };
+  GtkWidget *menu_bar;
+  GtkWidget *menu_item;
+  GtkWidget *menu;
+  GtkWidget *popup_button;
+  GtkWidget *bar;
+  GtkWidget *image;
+  GdkPixbuf *pixbuf, *pixbuf2;
+  gint w,h;
 
+  menu_bar=gtk_menu_bar_new();
+  gtk_widget_show (menu_bar);
 
-  accel_group=gtk_accel_group_new();
-  item_factory= gtk_item_factory_new(GTK_TYPE_MENU_BAR,
-				     "<main>",
-				     accel_group);
-  gtk_item_factory_create_items(item_factory,
-				(guint)4,
-				menu_items, (gpointer)hl);
+  gtk_icon_size_lookup(GTK_ICON_SIZE_MENU,&w,&h);
 
-#ifdef USE_GTK2
-//  _gtk_accel_group_attach(accel_group, GTK_OBJECT(hl->w_top));
+  //// File
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("system-file-manager", GTK_ICON_SIZE_MENU);
+  menu_item =gtkut_image_menu_item_new_with_label (image, "File");
 #else
-  gtk_accel_group_attach(accel_group, GTK_OBJECT(hl->w_top));
+  image=gtk_image_new_from_stock (GTK_STOCK_FILE, GTK_ICON_SIZE_MENU);
+  menu_item =gtk_image_menu_item_new_with_label ("File");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(menu_item),image);
 #endif
-  return(gtk_item_factory_get_widget(item_factory, "<main>"));
+  gtk_widget_show (menu_item);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), menu_item);
+  
+  menu=gtk_menu_new();
+  gtk_widget_show (menu);
+  gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
+  
+  //File/Send Mail
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("mail-send", GTK_ICON_SIZE_MENU);
+  popup_button =gtkut_image_menu_item_new_with_label (image, "Send Mail");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_NETWORK, GTK_ICON_SIZE_MENU);
+  popup_button =gtk_image_menu_item_new_with_label ("Send Mail");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+  gtk_widget_show (popup_button);
+  gtk_container_add (GTK_CONTAINER (menu), popup_button);
+  g_signal_connect (popup_button, "activate",G_CALLBACK(do_mail),(gpointer)hl);
+
+  bar =gtk_separator_menu_item_new();
+  gtk_widget_show (bar);
+  gtk_container_add (GTK_CONTAINER (menu), bar);
+
+  //File/Quit
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("application-exit", GTK_ICON_SIZE_MENU);
+  popup_button =gtkut_image_menu_item_new_with_label (image, "Quit");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_QUIT, GTK_ICON_SIZE_MENU);
+  popup_button =gtk_image_menu_item_new_with_label ("Quit");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+  gtk_widget_show (popup_button);
+  gtk_container_add (GTK_CONTAINER (menu), popup_button);
+  g_signal_connect (popup_button, "activate",G_CALLBACK(do_quit),NULL);
+
+  //// Info
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("user-info", GTK_ICON_SIZE_MENU);
+  menu_item =gtkut_image_menu_item_new_with_label (image, "Info");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_INFO, GTK_ICON_SIZE_MENU);
+  menu_item =gtk_image_menu_item_new_with_label ("Info");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(menu_item),image);
+#endif
+  gtk_widget_show (menu_item);
+  gtk_menu_shell_append(GTK_MENU_SHELL(menu_bar), menu_item);
+  
+  menu=gtk_menu_new();
+  gtk_widget_show (menu);
+  gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
+  
+  //Info/About
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("help-about", GTK_ICON_SIZE_MENU);
+  popup_button =gtkut_image_menu_item_new_with_label (image, "About");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_ABOUT, GTK_ICON_SIZE_MENU);
+  popup_button =gtk_image_menu_item_new_with_label ("About");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+  gtk_widget_show (popup_button);
+  gtk_container_add (GTK_CONTAINER (menu), popup_button);
+  g_signal_connect (popup_button, "activate", 
+		    G_CALLBACK(show_version), (gpointer)hl);
+
+  gtk_widget_show_all(menu_bar);
+  return(menu_bar);
 }
+
 
 
 void gui_init(typHLOG *hl){
@@ -1317,10 +1553,198 @@ void gui_init(typHLOG *hl){
   gtk_widget_set_usize (hl->w_box, -1, entry_height*20);
 
 
-  make_frame_list(hl);
+  make_frame_tree(hl);
+  //make_frame_list(hl);
   
   gtk_widget_show_all(hl->w_top);
 
+}
+
+
+void show_version (GtkWidget *widget, gpointer gdata)
+{
+  GtkWidget *dialog, *label, *button, *pixmap, *vbox, *hbox;
+  GdkPixbuf *pixbuf, *pixbuf2;
+#if HAVE_SYS_UTSNAME_H
+  struct utsname utsbuf;
+#endif
+  gchar buf[1024];
+  GtkWidget *scrolledwin;
+  GtkWidget *text;
+  GtkTextBuffer *buffer;
+  GtkTextIter iter;
+  typHLOG *hl=(typHLOG *) gdata;
+  gint result;
+  gchar *tempdir=NULL, *conffile=NULL;
+
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : About This Program",
+				       GTK_WINDOW(hl->w_top),
+				       GTK_DIALOG_MODAL,
+#ifdef USE_GTK3
+				       "_OK",GTK_RESPONSE_OK,
+#else
+				       GTK_STOCK_OK,GTK_RESPONSE_OK,
+#endif
+				       NULL);
+
+  gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK); 
+  gtk_widget_grab_focus(gtk_dialog_get_widget_for_response(GTK_DIALOG(dialog),
+							   GTK_RESPONSE_OK));
+  
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     hbox,FALSE, FALSE, 0);
+
+  vbox = gtkut_vbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
+  gtk_box_pack_start(GTK_BOX(hbox),vbox,FALSE, FALSE, 0);
+
+
+  label = gtk_label_new ("");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox),label,FALSE, FALSE, 0);
+
+  label = gtk_label_new (NULL);
+  gtk_label_set_markup(GTK_LABEL(label), "<span size=\"larger\"><b>Subaru/HDS Log Editor</b></span>   version "VERSION);
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox),label,FALSE, FALSE, 0);
+
+  g_snprintf(buf, sizeof(buf),
+	     "GTK+ %d.%d.%d / GLib %d.%d.%d",
+	     gtk_major_version, gtk_minor_version, gtk_micro_version,
+	     glib_major_version, glib_minor_version, glib_micro_version);
+  label = gtk_label_new (buf);
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox), label,FALSE, FALSE, 0);
+
+#if HAVE_SYS_UTSNAME_H
+  uname(&utsbuf);
+  g_snprintf(buf, sizeof(buf),
+	     "Operating System: %s %s (%s)",
+	     utsbuf.sysname, utsbuf.release, utsbuf.machine);
+#else
+  g_snprintf(buf, sizeof(buf),
+	     "Operating System: unknown UNIX");
+#endif
+  label = gtk_label_new (buf);
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox), label,FALSE, FALSE, 0);
+
+
+  label = gtk_label_new ("");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox),label,FALSE, FALSE, 0);
+
+ 
+  
+  label = gtk_label_new (NULL);
+  gtk_label_set_markup (GTK_LABEL(label), "&#xA9; 2003  Akito Tajitsu");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox),label,FALSE, FALSE, 0);
+
+  label = gtk_label_new ("Subaru Telescope, National Astronomical Observatory of Japan");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox), label,FALSE, FALSE, 0);
+
+  label=gtk_label_new(NULL);
+  gtk_label_set_markup (GTK_LABEL(label), "&lt;<i>tajitsu@naoj.org</i>&gt;");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox), label,FALSE, FALSE, 0);
+
+  label = gtk_label_new ("");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
+#endif
+  gtk_box_pack_start(GTK_BOX(vbox), label,FALSE, FALSE, 0);
+
+  scrolledwin = gtk_scrolled_window_new(NULL, NULL);
+  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolledwin),
+				 GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
+  gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scrolledwin),
+				      GTK_SHADOW_IN);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     scrolledwin, TRUE, TRUE, 0);
+  gtk_widget_set_size_request (scrolledwin, 400, 250);
+  
+  text = gtk_text_view_new();
+  gtk_text_view_set_editable(GTK_TEXT_VIEW(text), FALSE);
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(text), GTK_WRAP_WORD);
+  gtk_text_view_set_left_margin(GTK_TEXT_VIEW(text), 6);
+  gtk_text_view_set_right_margin(GTK_TEXT_VIEW(text), 6);
+  gtk_container_add(GTK_CONTAINER(scrolledwin), text);
+  
+  buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text));
+  gtk_text_buffer_get_iter_at_offset(buffer, &iter, 0);
+  
+  gtk_text_buffer_insert(buffer, &iter,
+			 "This program is free software; you can redistribute it and/or modify "
+			 "it under the terms of the GNU General Public License as published by "
+			 "the Free Software Foundation; either version 3, or (at your option) "
+			 "any later version.\n\n", -1);
+
+  gtk_text_buffer_insert(buffer, &iter,
+			 "This program is distributed in the hope that it will be useful, "
+			 "but WITHOUT ANY WARRANTY; without even the implied warranty of "
+			 "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. "
+			 "See the GNU General Public License for more details.\n\n", -1);
+
+  gtk_text_buffer_insert(buffer, &iter,
+			 "You should have received a copy of the GNU General Public License "
+			 "along with this program.  If not, see <http://www.gnu.org/licenses/>.", -1);
+
+  gtk_text_buffer_get_start_iter(buffer, &iter);
+  gtk_text_buffer_place_cursor(buffer, &iter);
+
+  gtk_widget_show_all(dialog);
+
+  result= gtk_dialog_run(GTK_DIALOG(dialog));
+
+  if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
 }
 
 
@@ -1330,6 +1754,15 @@ int main(int argc, char* argv[]){
   struct tm *tmpt,tmpt2;
   gint i;
 
+  if(argc!=2){
+    fprintf(stderr, "[Usage] : %% hdslog data-dir\n");
+    exit(0);
+  }
+  else if(access(argv[1], F_OK)!=0){
+    fprintf(stderr, " hdslog ERROR : Cannot access to \"%s\".\n", argv[1]);
+    exit(-1);
+  }
+
   hl=g_malloc0(sizeof(typHLOG));
 
   hl->data_dir=g_strdup(argv[1]);
@@ -1337,7 +1770,9 @@ int main(int argc, char* argv[]){
   hl->file_head=FILE_HDSA;
   hl->mail=g_strdup(DEF_MAIL);
 
-  hl->d_cross=DELTA_CROSS;
+  hl->http_host=NULL;
+  hl->http_path=NULL;
+  hl->http_dlfile=NULL;
 
   t = time(NULL);
   tmpt = localtime(&t);
@@ -1368,6 +1803,8 @@ int main(int argc, char* argv[]){
   hl->buf_day=hl->fr_day;
 
   hl->scr_flag=TRUE;
+  hl->ech_tmpfl=FALSE;
+  hl->ech_flag=FALSE;
   hl->i2_tmpfl=FALSE;
   hl->i2_flag=FALSE;
   hl->is_tmpfl=FALSE;
@@ -1381,8 +1818,8 @@ int main(int argc, char* argv[]){
 
   gtk_init(&argc, &argv);
 
-  gdk_color_alloc(gdk_colormap_get_system(),&red);
-  gdk_color_alloc(gdk_colormap_get_system(),&black);
+  gdk_color_alloc(gdk_colormap_get_system(),&color_red);
+  gdk_color_alloc(gdk_colormap_get_system(),&color_black);
 
   for(i=0;i<MAX_FRAME;i++){
     hl->frame[i].note.txt=NULL;
@@ -1390,6 +1827,14 @@ int main(int argc, char* argv[]){
     hl->frame[i].note.auto_fl=FALSE;
   }
   
+  hl->d_cross_b=DEF_D_CROSS_B;
+  hl->d_cross_r=DEF_D_CROSS_R;
+  hl->camz_b=DEF_CAMZ_B;
+  hl->camz_r=DEF_CAMZ_R;
+  hl->echelle0=DEF_ECHELLE0;
+  hl->camz_date=NULL;
+
+  popup_dl_camz_list(NULL, (gpointer)hl);
   gui_init(hl);
 
   hl->timer=gtk_timeout_add(READ_INTERVAL, scan_command, (gpointer)hl);
