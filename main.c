@@ -815,26 +815,26 @@ void SendMail(GtkWidget *w, gpointer gdata){
   }
   
   fprintf(fp,"\nNo.  Frame-ID        Object Name            HST  Exp.  secZ   Filter       Slit       Cross      Bin.");
-    if(hl->camz_flag){
-      fprintf(fp," CamZ");
-    }
-    if(hl->ech_flag){
-      fprintf(fp," Echelle");
-    }
-    if(hl->i2_flag){
-      fprintf(fp,"  I2    ");
-    }
-    if(hl->is_flag){
-      fprintf(fp,"  IS    ");
-    }
-    if(hl->imr_flag){
-      fprintf(fp," ImR  SlitPA  ");
-    }
-    if(hl->adc_flag){
-      fprintf(fp," ADC ");
-    }
-    fprintf(fp, "  Note\n");
-
+  if(hl->camz_flag){
+    fprintf(fp," CamZ");
+  }
+  if(hl->ech_flag){
+    fprintf(fp," Echelle");
+  }
+  if(hl->i2_flag){
+    fprintf(fp,"  I2    ");
+  }
+  if(hl->is_flag){
+    fprintf(fp,"  IS    ");
+  }
+  if(hl->imr_flag){
+    fprintf(fp," ImR  SlitPA  ");
+  }
+  if(hl->adc_flag){
+    fprintf(fp," ADC ");
+  }
+  fprintf(fp, "  Note\n");
+  
   for(i=0;i<hl->num;i++){
     
     fprintf(fp,"%4d. %-15s %-20s %5s %4ds %4.2lf %6s/%6s %4.2lf/%5.2lf %12s %1dx%1d",
@@ -873,6 +873,17 @@ void SendMail(GtkWidget *w, gpointer gdata){
       fprintf(fp,"  \n");
     }
   }
+  
+  fprintf(fp,"  \n");
+  fprintf(fp,"  \n");
+  fprintf(fp,"  Using focus measurement on %s\n", hl->camz_date);
+  fprintf(fp,"  best CamZ for Red  : %+d\n", hl->camz_r);
+  fprintf(fp,"  best CamZ for Blue : %+d\n", hl->camz_b);
+  fprintf(fp,"  delta Cross Scan Red  : %+d\n", hl->d_cross_r);
+  fprintf(fp,"  delta Cross Scan Blue : %+d\n", hl->d_cross_b);
+  fprintf(fp,"  Echelle zero angle : %+d\n", hl->echelle0);
+  fprintf(fp,"  \n");
+
 
   fclose(fp);
 

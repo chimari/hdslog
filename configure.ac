@@ -102,6 +102,7 @@ AC_CHECK_HEADERS([pwd.h sys/utsname.h])
 
 AC_OUTPUT([
 Makefile
+icons/Makefile
 version.h
 ])
 
