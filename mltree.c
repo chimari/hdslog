@@ -27,9 +27,9 @@ void read_ml(typHLOG *hl){
     g_free(mlfile);
     if(hl->ml[0].address) g_free(hl->ml[0].address);
     hl->ml[0].address=g_strdup(DEF_MAIL);
-    hl->ml[0].year=hl->buf_year;
-    hl->ml[0].month=hl->buf_month;
-    hl->ml[0].day=hl->buf_day;
+    hl->ml[0].year=hl->fr_year;
+    hl->ml[0].month=hl->fr_month;
+    hl->ml[0].day=hl->fr_day;
     hl->ml_max=1;
     return;
   }
@@ -68,7 +68,7 @@ void popup_ml (GtkWidget *widget, gpointer gdata)
   GtkWidget *hbox;
   
   hl->mldialog = gtk_dialog_new();
-  gtk_container_border_width(GTK_CONTAINER(hl->mldialog),5);
+  gtk_container_set_border_width(GTK_CONTAINER(hl->mldialog),5);
   gtk_window_set_title(GTK_WINDOW(hl->mldialog),"HDS Log Editor : Mail Address Book");
   gtk_window_set_modal(GTK_WINDOW(hl->mldialog),TRUE);
   gtk_window_set_transient_for(GTK_WINDOW(hl->mldialog),GTK_WINDOW(hl->smdialog));
@@ -110,33 +110,36 @@ void popup_ml (GtkWidget *widget, gpointer gdata)
 
   make_mltree(hl);
   gtk_container_add (GTK_CONTAINER (scrwin), hl->mltree);
-  gtk_widget_set_usize(scrwin, 400,400);
+  gtk_widget_set_size_request(scrwin, 400,400);
   g_signal_connect (hl->mltree, "cursor-changed",
 		    G_CALLBACK (focus_mltree_item), (gpointer)hl);
+
+  hbox = gtkut_hbox_new (FALSE, 5);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->mldialog))),
+		     hbox,TRUE, TRUE, 5);
+
+  label = gtk_label_new ("     ");
+  gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
 
 #ifdef USE_GTK3
   button=gtkut_button_new_from_icon_name("Append To:","list-add");
 #else
   button=gtkut_button_new_from_stock("Append To:",GTK_STOCK_ADD);
 #endif
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(hl->mldialog)->action_area),
-		     button,FALSE,FALSE,0);
-  gtk_signal_connect(GTK_OBJECT(button),"pressed",
-		     GTK_SIGNAL_FUNC(add_address), 
-		     (gpointer)hl);
-
-  GTK_WIDGET_SET_FLAGS(button,GTK_CAN_DEFAULT);
-
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  g_signal_connect(button,"pressed",
+		   G_CALLBACK(add_address), 
+		   (gpointer)hl);
+  
 #ifdef USE_GTK3
-  button=gtkut_button_new_from_icon_name("Cancel","process-stop");
+  button=gtkut_button_new_from_icon_name("Close","window-close");
 #else
-  button=gtkut_button_new_from_stock("Cancel",GTK_STOCK_CANCEL);
+  button=gtkut_button_new_from_stock("Close",GTK_STOCK_CLOSE);
 #endif
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(hl->mldialog)->action_area),
-		     button,FALSE,FALSE,0);
-  gtk_signal_connect(GTK_OBJECT(button),"pressed",
-		     GTK_SIGNAL_FUNC(gtk_main_quit), 
-		     NULL);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  g_signal_connect(button,"pressed",
+		   G_CALLBACK(gtk_main_quit), 
+		   NULL);
 
   
   gtk_widget_show_all(hl->mldialog);
@@ -468,12 +471,12 @@ void parse_address(typHLOG *hl){
   gchar *buf=NULL, *cp, *cpp, *tmp_char=NULL, *head=NULL, *tmp_p;
   gchar *tmp;
   gint i_ml=0, i_sent=0, i_sent_max=0, i_tgt, j_ml;
-  gint buf_date, ml_date;
+  gint fr_date, ml_date;
   
   gchar *addr[MAX_MAIL];
 
   mlfile=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,MAIL_LIST,NULL);
-  buf_date=hl->buf_year*10000+hl->buf_month*100+hl->buf_day;
+  fr_date=hl->fr_year*10000+hl->fr_month*100+hl->fr_day;
   
   cp=(gchar *)strtok(hl->mail,",");
   if(!cp) return;
@@ -503,14 +506,14 @@ void parse_address(typHLOG *hl){
 
       if(hl->ml[hl->ml_max].address) g_free(hl->ml[hl->ml_max].address);
       hl->ml[hl->ml_max].address=g_strdup(addr[i_sent]);
-      hl->ml[hl->ml_max].year=hl->buf_year;
-      hl->ml[hl->ml_max].month=hl->buf_month;
-      hl->ml[hl->ml_max].day=hl->buf_day;
+      hl->ml[hl->ml_max].year=hl->fr_year;
+      hl->ml[hl->ml_max].month=hl->fr_month;
+      hl->ml[hl->ml_max].day=hl->fr_day;
 
       for(j_ml=hl->ml_max-1;j_ml>=0;j_ml--){
 	ml_date=hl->ml[j_ml].year*10000+hl->ml[j_ml].month*100
 	  +hl->ml[j_ml].day;
-	if(buf_date>ml_date){
+	if(fr_date>ml_date){
 	  swap_ml(&hl->ml[j_ml+1], &hl->ml[j_ml]);
 	}
 	else{
@@ -522,15 +525,15 @@ void parse_address(typHLOG *hl){
       
     }
     else{
-      if(buf_date>ml_date){
-	hl->ml[i_tgt].year=hl->buf_year;
-	hl->ml[i_tgt].month=hl->buf_month;
-	hl->ml[i_tgt].day=hl->buf_day;
+      if(fr_date>ml_date){
+	hl->ml[i_tgt].year=hl->fr_year;
+	hl->ml[i_tgt].month=hl->fr_month;
+	hl->ml[i_tgt].day=hl->fr_day;
 
 	for(j_ml=i_tgt-1;j_ml>=0;j_ml--){
 	  ml_date=hl->ml[j_ml].year*10000+hl->ml[j_ml].month*100
 	    +hl->ml[j_ml].day;
-	  if(buf_date>ml_date){
+	  if(fr_date>ml_date){
 	    swap_ml(&hl->ml[j_ml+1], &hl->ml[j_ml]);
 	  }
 	  else{

@@ -1,4 +1,4 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -54,8 +54,11 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* Use Gtk+2.x instead of Gtk+1.2 */
+/* Use Gtk+2.x instead of Gtk+3 */
 #undef USE_GTK2
+
+/* Use Gtk+3.x instead of Gtk+2 */
+#undef USE_GTK3
 
 /* Define if you use OpenSSL to support SSL. */
 #undef USE_SSL

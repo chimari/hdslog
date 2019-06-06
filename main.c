@@ -8,7 +8,6 @@
 
 // #define DEBUG
 
-gboolean flag_make_frame_list=FALSE;
 gboolean flag_make_top=FALSE;
 gboolean flagChildDialog=FALSE;
 GtkWidget *frame_table;
@@ -19,7 +18,8 @@ static void cc_get_adj ();
 static void cc_get_entry ();
 static void cc_get_note ();
 static void cc_get_toggle();
-static void cc_file_head ();
+static void cc_get_combo_box ();
+
 static void refresh_table ();
 gboolean create_lock ();
 static void remove_lock ();
@@ -28,9 +28,7 @@ static void save_note ();
 static void load_note ();
 
 void select_color();
-void make_frame_list();
 void update_frame_tree();
-void update_frame_list();
 int printfits();
 void ext_play();
 gint scan_command();
@@ -119,7 +117,7 @@ static void close_child_dialog(GtkWidget *w, GtkWidget *dialog)
 
 static void cc_get_adj (GtkWidget *widget, gint * gdata)
 {
-  *gdata=GTK_ADJUSTMENT(widget)->value;
+  *gdata=(int)gtk_adjustment_get_value(GTK_ADJUSTMENT(widget));
 }
 
 static void cc_get_entry (GtkWidget *widget, gchar **gdata)
@@ -149,31 +147,19 @@ static void cc_get_toggle (GtkWidget * widget, gboolean * gdata)
   *gdata=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
-static void cc_file_head (GtkWidget *widget, gint *gdata)
+static void cc_get_combo_box (GtkWidget *widget,  gint * gdata)
 {
-  
-  if(!strcmp(gtk_entry_get_text(GTK_ENTRY(widget)),"HDSA")){
-    *gdata = FILE_HDSA;
-  }
-  else if(!strcmp(gtk_entry_get_text(GTK_ENTRY(widget)),"hds20")){
-    *gdata = FILE_hds;
+  GtkTreeIter iter;
+  if(gtk_combo_box_get_active_iter(GTK_COMBO_BOX(widget), &iter)){
+    gint n;
+    GtkTreeModel *model;
+    
+    model=gtk_combo_box_get_model(GTK_COMBO_BOX(widget));
+    gtk_tree_model_get (model, &iter, 1, &n, -1);
+
+    *gdata=n;
   }
 }
-
-void change_label(GtkWidget *widget, gchar *txt, GdkColor color){
-  GtkStyle *def_style, *style;
-
-  def_style = gtk_widget_get_style(widget);
-  style = gtk_style_copy(def_style);
-
-  gtk_label_set(GTK_LABEL(widget),txt);
-  style->fg[0] = color;
-  gtk_widget_set_style(widget,style);
-
-  while (g_main_iteration(FALSE));
-  gdk_flush();
-}
-
 
 static void refresh_table (GtkWidget *widget, gpointer gdata)
 {
@@ -203,9 +189,6 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
   hl->to_time=hl->fr_time+60*60*24;
     
 
-  if(flag_make_frame_list)  gtk_widget_destroy(frame_table);
-  flag_make_frame_list=FALSE;
-
   for(i=0;i<MAX_FRAME;i++){
     hl->frame[i].note.txt=NULL;
     hl->frame[i].note.time=0;
@@ -222,7 +205,6 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
   hl->imr_flag=hl->imr_tmpfl;
   hl->adc_flag=hl->adc_tmpfl;
 
-  //make_frame_list(hl);
   make_frame_tree(hl);
   
   gtk_widget_set_sensitive(hl->b_refresh,TRUE);
@@ -240,11 +222,13 @@ gboolean create_lock (typHLOG *hl){
     if (hl->lock_fp == -1){
       printf ("%d - Lock already present\n",getpid());
       //return(FALSE);
-      change_label(hl->w_status, "File Lock", color_red);
+      gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			   "<span color=\"#FF0000\"><b>File Lock</b></span>");
       sleep(1);
     }
     else{
-      change_label(hl->w_status, "Scanning...", color_black);
+      gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			   "Scanning...");
       hl->lock_flag=TRUE;
       //return(TRUE);
       break;
@@ -266,7 +250,8 @@ static void remove_lock (typHLOG *hl){
 
 static void wait_lock (typHLOG *hl){
   while(hl->lock_flag){
-    change_label(hl->w_status, "File Lock", color_red);
+    gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 "<span color=\"#FF0000\"><b>File Lock</b></span>");
     sleep(1);
   }
 }
@@ -414,75 +399,76 @@ void make_top_table(typHLOG *hl){
   else flag_make_top=TRUE;
 
 
-  hl->top_table = gtk_table_new (1, 2, FALSE);
-  gtk_table_set_col_spacings( GTK_TABLE(hl->top_table), 5 );
-  gtk_container_set_border_width (GTK_CONTAINER (hl->top_table), 5);
+  hl->top_table = gtkut_table_new (1, 2, FALSE, 5, 5, 5);
   
   hbox = gtkut_hbox_new(FALSE,2);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
-  gtk_table_attach(GTK_TABLE(hl->top_table), hbox, 0, 1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
+  gtkut_table_attach(hl->top_table, hbox, 0, 1, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
 
   label = gtk_label_new ("Current/Next");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
 
-  combo = gtk_combo_new();
-  gtk_entry_set_editable(GTK_ENTRY(GTK_COMBO(combo)->entry),FALSE);
-  gtk_box_pack_start(GTK_BOX(hbox),combo,FALSE,FALSE,0);
-  
-  label = gtk_list_item_new_with_label ("HDSA");
-  gtk_container_add (GTK_CONTAINER (GTK_COMBO(combo)->list),
-		     label);
-  gtk_widget_show(label);
-  label = gtk_list_item_new_with_label ("hds20");
-  gtk_container_add (GTK_CONTAINER (GTK_COMBO(combo)->list),
-			 label);
-  gtk_widget_show(label);
-  switch(hl->file_head){
-  case FILE_HDSA:
-    gtk_entry_set_text(GTK_ENTRY(GTK_COMBO(combo)->entry),
-		       "HDSA");
-    break;
-  case FILE_hds:
-    gtk_entry_set_text(GTK_ENTRY(GTK_COMBO(combo)->entry),
-		       "hds20");
-    break;
+  {
+    GtkListStore *store;
+    GtkTreeIter iter, iter_set;	  
+    GtkCellRenderer *renderer;
+    store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_INT, G_TYPE_BOOLEAN);
+    
+    gtk_list_store_append(store, &iter);
+    gtk_list_store_set(store, &iter, 0, "HDSA",
+		       1, FILE_HDSA, 2, TRUE, -1);
+    if(hl->file_head==FILE_HDSA) iter_set=iter;
+    
+    gtk_list_store_append(store, &iter);
+    gtk_list_store_set(store, &iter, 0, "hds20",
+		       1, FILE_hds, 2, TRUE, -1);
+    if(hl->file_head==FILE_hds) iter_set=iter;
+    
+    
+    combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
+    gtk_box_pack_start(GTK_BOX(hbox),combo,FALSE,FALSE,0);
+    g_object_unref(store);
+    
+    renderer = gtk_cell_renderer_text_new();
+    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo),renderer, TRUE);
+    gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT(combo), renderer, "text",0,NULL);
+    
+    gtk_combo_box_set_active_iter(GTK_COMBO_BOX(combo),&iter_set);
+    gtk_widget_show(combo);
+    g_signal_connect (combo,"changed",G_CALLBACK(cc_get_combo_box),
+		       &hl->file_head);
   }
-  gtk_widget_set_usize (combo, entry_height*4, -1);
-  gtk_signal_connect (GTK_OBJECT(GTK_COMBO(combo)->entry),
-		      "changed",
-		      GTK_SIGNAL_FUNC (cc_file_head),
-		      &hl->file_head);
+
 
   // Next ID
   hl->e_next = gtk_entry_new ();
-  gtk_entry_set_editable(GTK_ENTRY(hl->e_next), FALSE);
+  gtk_editable_set_editable(GTK_EDITABLE(hl->e_next), FALSE);
   gtk_box_pack_start(GTK_BOX(hbox),hl->e_next,FALSE,FALSE,0);
 
   // Note
   hl->e_note = gtk_entry_new ();
-  gtk_entry_set_editable(GTK_ENTRY(hl->e_note), TRUE);
   gtk_box_pack_start(GTK_BOX(hbox),hl->e_note,FALSE,FALSE,0);
-  gtk_widget_set_usize (hl->e_note, entry_height*10, -1);
-  gtk_signal_connect (GTK_OBJECT(hl->e_note),
-		      "changed",
-		      GTK_SIGNAL_FUNC (cc_get_entry),
-		      &hl->next_note);
+  gtk_entry_set_width_chars(GTK_ENTRY(hl->e_note),40);
+  g_signal_connect (hl->e_note,
+		    "changed",
+		    G_CALLBACK(cc_get_entry),
+		    &hl->next_note);
   
   check = gtk_check_button_new_with_label("Auto Scroll");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->scr_flag){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->scr_flag);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK(cc_get_toggle),
+		    &hl->scr_flag);
   
 
   hbox = gtkut_hbox_new(FALSE,2);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
-  gtk_table_attach(GTK_TABLE(hl->top_table), hbox, 0, 1, 1, 2,
-		   GTK_FILL,GTK_SHRINK,0,0);
+  gtkut_table_attach(hl->top_table, hbox, 0, 1, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
 
   label = gtk_label_new ("Date");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
@@ -515,94 +501,55 @@ void make_top_table(typHLOG *hl){
   if(hl->ech_tmpfl){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->ech_tmpfl);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->ech_tmpfl);
 
   check = gtk_check_button_new_with_label("I2");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->i2_tmpfl){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->i2_tmpfl);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->i2_tmpfl);
   
   check = gtk_check_button_new_with_label("IS");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->is_tmpfl){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->is_tmpfl);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->is_tmpfl);
   
   check = gtk_check_button_new_with_label("CamZ");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->camz_tmpfl){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->camz_tmpfl);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->camz_tmpfl);
   
   check = gtk_check_button_new_with_label("ImR");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->imr_tmpfl){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->imr_tmpfl);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->imr_tmpfl);
   
   check = gtk_check_button_new_with_label("ADC");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->adc_tmpfl){
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),TRUE);
   }
-  gtk_signal_connect (GTK_OBJECT (check), "toggled",
-		      GTK_SIGNAL_FUNC (cc_get_toggle),
-		      &hl->adc_tmpfl);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->adc_tmpfl);
   
-
-  /*
-  adj = (GtkAdjustment *)gtk_adjustment_new(hl->buf_year,
-					    2000, hl->buf_year+10,
-					    1.0, 1.0, 0);
-  spinner =  gtk_spin_button_new (adj, 0, 0);
-  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
-  gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
-			 FALSE);
-  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
-  gtk_widget_set_usize (spinner, entry_height*2.5, -1);
-  gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
-  		      GTK_SIGNAL_FUNC (cc_get_adj),
-  		      &hl->buf_year);
-
-  adj = (GtkAdjustment *)gtk_adjustment_new(hl->buf_month,
-					    1, 12, 1.0, 1.0, 0);
-  spinner =  gtk_spin_button_new (adj, 0, 0);
-  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
-  gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
-			 FALSE);
-  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
-  gtk_widget_set_usize (spinner, entry_height*2, -1);
-  gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
-  		      GTK_SIGNAL_FUNC (cc_get_adj),
-  		      &hl->buf_month);
-  
-  adj = (GtkAdjustment *)gtk_adjustment_new(hl->buf_day,
-					    1, 31, 1.0, 1.0, 0);
-  spinner =  gtk_spin_button_new (adj, 0, 0);
-  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
-  gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
-			 FALSE);
-  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
-  gtk_widget_set_usize (spinner, entry_height*2, -1);
-  gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
-  		      GTK_SIGNAL_FUNC (cc_get_adj),
-  		      &hl->buf_day);
-  */
 
   label = gtkut_label_new ("  &#x394;Cross <span color=\"#0000FF\">B</span>");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
@@ -612,13 +559,10 @@ void make_top_table(typHLOG *hl){
 					    1.0, 1.0, 0);
   spinner =  gtk_spin_button_new (adj, 0, 0);
   gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
-  gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
-			 TRUE);
   gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
-  gtk_widget_set_usize (spinner, entry_height*2.5, -1);
-  gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
-  		      GTK_SIGNAL_FUNC (cc_get_adj),
-  		      &hl->d_cross_b);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    &hl->d_cross_b);
 
   label = gtkut_label_new ("  <span color=\"#FF0000\">R</span>");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
@@ -628,13 +572,10 @@ void make_top_table(typHLOG *hl){
 					    1.0, 1.0, 0);
   spinner =  gtk_spin_button_new (adj, 0, 0);
   gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
-  gtk_entry_set_editable(GTK_ENTRY(&GTK_SPIN_BUTTON(spinner)->entry),
-			 TRUE);
   gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
-  gtk_widget_set_usize (spinner, entry_height*2.5, -1);
-  gtk_signal_connect (GTK_OBJECT (adj), "value_changed",
-  		      GTK_SIGNAL_FUNC (cc_get_adj),
-  		      &hl->d_cross_r);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    &hl->d_cross_r);
 
 #ifdef USE_GTK3
   hl->b_refresh=gtkut_button_new_from_icon_name(NULL,"view-refresh");
@@ -642,9 +583,9 @@ void make_top_table(typHLOG *hl){
   hl->b_refresh=gtkut_button_new_from_stock(NULL,GTK_STOCK_REFRESH);
 #endif
   gtk_box_pack_start(GTK_BOX(hbox),hl->b_refresh,FALSE,FALSE,0);
-  gtk_signal_connect(GTK_OBJECT(hl->b_refresh),"clicked", 
-		     GTK_SIGNAL_FUNC(refresh_table), 
-		     (gpointer)hl);
+  g_signal_connect(hl->b_refresh,"clicked", 
+		   G_CALLBACK(refresh_table), 
+		   (gpointer)hl);
 #ifdef __GTK_TOOLTIP_H__
   gtk_widget_set_tooltip_text(hl->b_refresh,
 			      "Set Date & flags, then Remake table");
@@ -656,121 +597,6 @@ void make_top_table(typHLOG *hl){
 
 
   gtk_widget_show_all(hl->top_table);
-}
-
-
-void make_frame_list(typHLOG *hl){
-  GtkWidget *label;
-  int col=0;
-  
-
-  if(flag_make_frame_list)  gtk_widget_destroy(frame_table);
-  else flag_make_frame_list=TRUE;
-
-
-  frame_table = gtk_table_new (10, hl->num+3, FALSE);
-  gtk_table_set_col_spacings( GTK_TABLE(frame_table), 5 );
-  gtk_container_set_border_width (GTK_CONTAINER (frame_table), 5);
-  
-  gtk_scrolled_window_add_with_viewport
-    (GTK_SCROLLED_WINDOW (hl->scrwin), frame_table);
-
-  label = gtk_label_new ("No.");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Frame-ID");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Object Name");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("HST");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Exp.");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("secZ");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Filter");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Slit");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Cross");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  label = gtk_label_new ("Bin");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-  col++;
-
-  if(hl->camz_flag){
-    label = gtk_label_new ("CamZ");
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-  }
-
-  if(hl->i2_flag){
-    label = gtk_label_new ("I2");
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-  }
-
-  if(hl->is_flag){
-    label = gtk_label_new ("IS");
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-  }
-
-  if(hl->imr_flag){
-    label = gtk_label_new ("ImR");
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    label = gtk_label_new ("SlitPA");
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-  }
-
-  if(hl->adc_flag){
-    label = gtk_label_new ("ADC");
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-  }
-
-  label = gtk_label_new ("Note");
-  gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1, 0, 1,
-		   GTK_FILL,GTK_SHRINK,0,0);
-
-  gtk_widget_show_all(frame_table);
 }
 
 
@@ -804,199 +630,6 @@ void update_frame_tree(typHLOG *hl){
   }  
 }
 
-void update_frame_list(typHLOG *hl){
-  int i, col=0;
-  GtkWidget *label;
-  GtkWidget *entry;
-  gchar tmp[64];
-
-  //// Current Condition
-
-#ifdef DEBUG
-    fprintf(stderr, "Start Load\n");
-#endif
-  if((hl->num_old==0)&&(hl->num!=0)){
-    load_note(hl,TRUE);
-  }
-  else{
-    load_note(hl,FALSE);
-  }
-#ifdef DEBUG
-    fprintf(stderr, "End Load\n");
-#endif
-
-  for(i=hl->num_old;i<hl->num;i++){
-    col=0;
-
-    // Num
-    sprintf(tmp,"%3d.",i+1);
-    label = gtk_label_new (tmp);
-    gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // ID
-    label = gtk_label_new (hl->frame[i].id);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // Name
-    label = gtk_label_new (hl->frame[i].name);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // HST
-    label = gtk_label_new (hl->frame[i].hst);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // EXPTIME
-    sprintf(tmp,"%4ds",hl->frame[i].exp);
-    label = gtk_label_new (tmp);
-    gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // SECZ
-    sprintf(tmp,"%4.2lf",hl->frame[i].secz);
-    label = gtk_label_new (tmp);
-    gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // FILTER
-    sprintf(tmp,"%s/%s",hl->frame[i].fil1,hl->frame[i].fil2);
-    label = gtk_label_new (tmp);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // SLIT
-    sprintf(tmp,"%4.2lfx%5.2lf",hl->frame[i].slt_wid,hl->frame[i].slt_len);
-    label = gtk_label_new (tmp);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // CROSS
-    label = gtk_label_new (hl->frame[i].setup);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // BINNING
-    sprintf(tmp,"%1ldx%1ld",hl->frame[i].bin1,hl->frame[i].bin2);
-    label = gtk_label_new (tmp);
-    gtk_misc_set_alignment (GTK_MISC (label), 0.5, 0.5);
-    gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		     GTK_FILL,GTK_SHRINK,0,0);
-    col++;
-
-    // CAMZ
-    if(hl->camz_flag){
-      sprintf(tmp,"%4d",hl->frame[i].camz);
-      label = gtk_label_new (tmp);
-      gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-      gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-      col++;
-    }
-
-    // I2
-    if(hl->i2_flag){
-      label = gtk_label_new (hl->frame[i].i2);
-      gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-      gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-      col++;
-    }
-
-    // ImgSlicer
-    if(hl->is_flag){
-      label = gtk_label_new (hl->frame[i].is);
-      gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-      gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-      col++;
-    }
-
-    // ImR
-    if(hl->imr_flag){
-      label = gtk_label_new (hl->frame[i].imr);
-      gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
-      gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-      col++;
-
-      sprintf(tmp,"%+6.2lf",hl->frame[i].slt_pa);
-      label = gtk_label_new (tmp);
-      gtk_misc_set_alignment (GTK_MISC (label), 1.0, 0.5);
-      gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-      col++;
-
-    }
-
-    // ADC
-    if(hl->adc_flag){
-      label = gtk_label_new (hl->frame[i].adc);
-      gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
-      gtk_table_attach(GTK_TABLE(frame_table), label, col, col+1,  i+1, i+2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-      col++;
-    }
-
-    // Note
-    hl->frame[i].w_note = gtk_entry_new ();
-    gtk_table_attach(GTK_TABLE(frame_table), hl->frame[i].w_note,
-		     col, col+1, i+1, i+2,
-		     GTK_SHRINK,GTK_SHRINK,0,0);
-    gtk_signal_connect (GTK_OBJECT(hl->frame[i].w_note),
-			"changed",
-			GTK_SIGNAL_FUNC (cc_get_note),
-			(gpointer)&hl->frame[i].note);
-    if(hl->frame[i].note.txt){
-      gtk_entry_set_text(GTK_ENTRY(hl->frame[i].w_note),
-			 hl->frame[i].note.txt);
-    }
-
-    if(hl->num_old==hl->num-1){
-      if(hl->next_note){
-	hl->frame[i].note.txt=g_strdup(hl->next_note);
-	gtk_entry_set_text(GTK_ENTRY(hl->frame[i].w_note),
-			   hl->next_note);
-	gtk_entry_set_text(GTK_ENTRY(hl->e_note),"");
-	hl->next_note=NULL;
-      }
-    }
-
-    if(i==hl->num-1){
-      sprintf(tmp,"%d - %2d (?)",
-	      hl->frame[i].idnum+2,
-	      hl->frame[i].idnum+3-
-	      ((int)((hl->frame[i].idnum+3)/100))*100);
-      gtk_entry_set_text(GTK_ENTRY(hl->e_next),tmp);
-    }
-  }
-
-  if(hl->scr_flag){
-    gtk_adjustment_set_value(
-         gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin)),
-      gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->upper-gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->page_size);
-  }
-}
 
 int npcmp(FRAMEpara *x, FRAMEpara *y){
   return(x->idnum > y->idnum ? 1 :
@@ -1155,8 +788,10 @@ void SendMail(GtkWidget *w, gpointer gdata){
 
   hl=(typHLOG *)gdata;
 
-  sprintf(filename,  "%s/hdslog-%04d%02d%02d.txt",
-	  g_get_home_dir(),hl->fr_year,hl->fr_month,hl->fr_day);
+  sprintf(filename,  "%s%s%s%shdslog-%04d%02d%02d.txt",
+	  g_get_home_dir(), G_DIR_SEPARATOR_S,
+	  HDSLOG_DIR, G_DIR_SEPARATOR_S,
+	  hl->fr_year,hl->fr_month,hl->fr_day);
 
   if((fp=fopen(filename,"w"))==NULL){
     fprintf(stderr," File Read Error  \"%s\" \n", filename);
@@ -1182,6 +817,9 @@ void SendMail(GtkWidget *w, gpointer gdata){
   fprintf(fp,"\nNo.  Frame-ID        Object Name            HST  Exp.  secZ   Filter       Slit       Cross      Bin.");
     if(hl->camz_flag){
       fprintf(fp," CamZ");
+    }
+    if(hl->ech_flag){
+      fprintf(fp," Echelle");
     }
     if(hl->i2_flag){
       fprintf(fp,"  I2    ");
@@ -1212,6 +850,9 @@ void SendMail(GtkWidget *w, gpointer gdata){
 	    hl->frame[i].bin1,hl->frame[i].bin2);
     if(hl->camz_flag){
       fprintf(fp," %4d",hl->frame[i].camz);
+    }
+    if(hl->ech_flag){
+      fprintf(fp," %7d",(gint)hl->frame[i].erotan);
     }
     if(hl->i2_flag){
       fprintf(fp," %-7s",hl->frame[i].i2);
@@ -1285,7 +926,7 @@ void do_mail (GtkWidget *widget, gpointer gdata)
   }
 
   hl->smdialog = gtk_dialog_new();
-  gtk_container_border_width(GTK_CONTAINER(hl->smdialog),5);
+  gtk_container_set_border_width(GTK_CONTAINER(hl->smdialog),5);
   gtk_window_set_title(GTK_WINDOW(hl->smdialog),"HDS Log Editor : Send Mail");
   gtk_window_set_modal(GTK_WINDOW(hl->smdialog),TRUE);
   gtk_window_set_transient_for(GTK_WINDOW(hl->smdialog),GTK_WINDOW(hl->w_top));
@@ -1300,12 +941,12 @@ void do_mail (GtkWidget *widget, gpointer gdata)
 
   hl->address_entry = gtk_entry_new ();
   gtk_box_pack_start(GTK_BOX(hbox),hl->address_entry,TRUE,TRUE,0);
-  gtk_widget_set_usize (hl->address_entry, entry_height*20, -1);
+  gtk_entry_set_width_chars(GTK_ENTRY(hl->address_entry),60);
   gtk_entry_set_text(GTK_ENTRY(hl->address_entry),hl->mail);
-  gtk_signal_connect (GTK_OBJECT(hl->address_entry),
-		      "changed",
-		      GTK_SIGNAL_FUNC (cc_get_entry),
-		      (gpointer)&hl->mail);
+  g_signal_connect (hl->address_entry,
+		    "changed",
+		    G_CALLBACK(cc_get_entry),
+		    (gpointer)&hl->mail);
 
 
   hbox=gtkut_hbox_new(FALSE,5);
@@ -1319,9 +960,9 @@ void do_mail (GtkWidget *widget, gpointer gdata)
   button=gtkut_button_new_from_stock("Address Book",GTK_STOCK_PASTE);
 #endif
   gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
-  gtk_signal_connect(GTK_OBJECT(button),"pressed",
-		     GTK_SIGNAL_FUNC(popup_ml), 
-		     (gpointer)hl);
+  g_signal_connect(button,"pressed",
+		   G_CALLBACK(popup_ml), 
+		   (gpointer)hl);
 
   label=gtk_label_new("  ");
   gtk_box_pack_start(GTK_BOX(hbox),label,TRUE,TRUE, 0);
@@ -1332,11 +973,9 @@ void do_mail (GtkWidget *widget, gpointer gdata)
   button=gtkut_button_new_from_stock("Send",GTK_STOCK_NETWORK);
 #endif
   gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
-  gtk_signal_connect(GTK_OBJECT(button),"pressed",
-		     GTK_SIGNAL_FUNC(SendMail), 
-		     (gpointer)hl);
-
-  GTK_WIDGET_SET_FLAGS(button,GTK_CAN_DEFAULT);
+  g_signal_connect(button,"pressed",
+		   G_CALLBACK(SendMail), 
+		   (gpointer)hl);
 
 #ifdef USE_GTK3
   button=gtkut_button_new_from_icon_name("Cancel","process-stop");
@@ -1344,9 +983,9 @@ void do_mail (GtkWidget *widget, gpointer gdata)
   button=gtkut_button_new_from_stock("Cancel",GTK_STOCK_CANCEL);
 #endif
   gtk_box_pack_start(GTK_BOX(hbox),button,FALSE,FALSE,0);
-  gtk_signal_connect(GTK_OBJECT(button),"pressed",
-		     GTK_SIGNAL_FUNC(close_child_dialog), 
-		     GTK_WIDGET(hl->smdialog));
+  g_signal_connect(button,"pressed",
+		   G_CALLBACK(close_child_dialog), 
+		   GTK_WIDGET(hl->smdialog));
 
   
   gtk_widget_show_all(hl->smdialog);
@@ -1361,16 +1000,18 @@ gint scan_command(gpointer gdata){
 //  static pid_t pid;
 
   hl=(typHLOG *)gdata;
-  gtk_timeout_remove(hl->timer);
+  g_source_remove(hl->timer);
   
   //waitpid(pid,0,WNOHANG);
   //if( (pid=fork())==0){
-    printdir(hl);
+  printdir(hl);
   //  exit(-1);
   //  signal(SIGCHLD,ChildTerm);
   //}
 
-  hl->timer=gtk_timeout_add(READ_INTERVAL, scan_command, (gpointer)hl);
+  hl->timer=g_timeout_add(READ_INTERVAL, 
+			  (GSourceFunc)scan_command, 
+			  (gpointer)hl);
 }
 
 gint printdir(typHLOG *hl){
@@ -1382,8 +1023,8 @@ gint printdir(typHLOG *hl){
   int i,n;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
 
-  change_label(hl->w_status, "Scanning...", color_black);
-
+  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 "Scanning...");
   
   if((dp = opendir(hl->data_dir)) == NULL){
     fprintf(stderr, "cannot open directory: %s\n",hl->data_dir);
@@ -1448,7 +1089,8 @@ gint printdir(typHLOG *hl){
   update_frame_tree(hl);
   hl->num_old=hl->num;
 
-  change_label(hl->w_status, "", color_black);
+  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 " ");
   
   if(hl->scr_flag){
     frame_tree_select_last(hl);
@@ -1567,12 +1209,12 @@ void gui_init(typHLOG *hl){
 
   // Main Window 
   hl->w_top = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  gtk_signal_connect(GTK_OBJECT(hl->w_top), "destroy",
-  		     GTK_SIGNAL_FUNC(gtk_main_quit),NULL);
-  gtk_container_border_width(GTK_CONTAINER(hl->w_top),0);
+  g_signal_connect(hl->w_top, "destroy",
+		   G_CALLBACK(gtk_main_quit),NULL);
+  gtk_container_set_border_width(GTK_CONTAINER(hl->w_top),0);
   gtk_window_set_title(GTK_WINDOW(hl->w_top),"HDS Log Editor");
 
-  hl->w_box = gtk_vbox_new(FALSE,0);
+  hl->w_box = gtkut_vbox_new(FALSE,0);
   gtk_container_add (GTK_CONTAINER (hl->w_top), hl->w_box);
 
   menubar=make_menu(hl);
@@ -1586,11 +1228,11 @@ void gui_init(typHLOG *hl){
 				  GTK_POLICY_NEVER,
 				  GTK_POLICY_ALWAYS);
   gtk_box_pack_start(GTK_BOX(hl->w_box), hl->scrwin,TRUE, TRUE, 5);
-  gtk_widget_set_usize (hl->w_box, -1, entry_height*20);
+
+  gtk_widget_set_size_request(hl->scrwin,-1,400);
 
 
   make_frame_tree(hl);
-  //make_frame_list(hl);
   
   gtk_widget_show_all(hl->w_top);
 
@@ -1631,6 +1273,15 @@ void show_version (GtkWidget *widget, gpointer gdata)
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		     hbox,FALSE, FALSE, 0);
+
+  pixbuf = gdk_pixbuf_new_from_resource ("/icons/subaru_icon.png", NULL);
+  pixbuf2=gdk_pixbuf_scale_simple(pixbuf,
+				  96,96,GDK_INTERP_BILINEAR);
+  pixmap = gtk_image_new_from_pixbuf(pixbuf2);
+  g_object_unref(pixbuf);
+  g_object_unref(pixbuf2);
+
+  gtk_box_pack_start(GTK_BOX(hbox), pixmap,FALSE, FALSE, 0);
 
   vbox = gtkut_vbox_new(FALSE,2);
   gtk_container_set_border_width (GTK_CONTAINER (vbox), 5);
@@ -1789,6 +1440,7 @@ int main(int argc, char* argv[]){
   struct tm *tmpt,tmpt2;
   gint i;
   gchar *filename;
+  GdkPixbuf *icon;
 
   if(argc!=2){
     fprintf(stderr, "[Usage] : %% hdslog data-dir\n");
@@ -1862,8 +1514,10 @@ int main(int argc, char* argv[]){
 
   gtk_init(&argc, &argv);
 
+#ifndef USE_GTK3
   gdk_color_alloc(gdk_colormap_get_system(),&color_red);
   gdk_color_alloc(gdk_colormap_get_system(),&color_black);
+#endif
 
   for(i=0;i<MAX_FRAME;i++){
     hl->frame[i].note.txt=NULL;
@@ -1888,9 +1542,14 @@ int main(int argc, char* argv[]){
 
   read_ml(hl);
   popup_dl_camz_list(NULL, (gpointer)hl);
+  icon = gdk_pixbuf_new_from_resource ("/icons/subaru_icon.png", NULL);
+  gtk_window_set_default_icon(icon);
+
   gui_init(hl);
 
-  hl->timer=gtk_timeout_add(READ_INTERVAL, scan_command, (gpointer)hl);
+  hl->timer=g_timeout_add(READ_INTERVAL, 
+			  (GSourceFunc)scan_command, 
+			  (gpointer)hl);
 
   gtk_main();
 }

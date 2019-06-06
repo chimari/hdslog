@@ -3,6 +3,7 @@
 #endif  
 
 #include<gtk/gtk.h>
+#include <gio/gio.h>
 
 #include<stdio.h>
 #include<stdlib.h>

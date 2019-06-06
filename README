@@ -3,7 +3,7 @@
 #                         Document file                                  #
 #                                                                        # 
 #                                                                        # 
-#                                  ver 1.0.0 2019/06/04                  # 
+#                                  ver 1.1.0 2019/06/05                  # 
 #                               Copyright (C) 2005 Akito Tajitsu         #
 #      Subaru Telescope, National Astronomical Observatory of Japan      #
 #                                               tajitsu_at_naoj.org      # 
@@ -23,7 +23,7 @@ in your terminal.
 
 ### Environment ###
 This program is running under UNIX OSs with X window systems.
-Gtk+2 (or 3 in near future) is required.
+Gtk+2 (default) or 3 is required.
 You need to use mutt with msmtp (recommended) to send logs via e-mail.
 
 
@@ -33,7 +33,10 @@ You need to use mutt with msmtp (recommended) to send logs via e-mail.
   - (Only if you cloned the source code via GitHub)
     % touch configure configure.ac aclocal.m4 Makefile.am Makefile.in
 
-  - % ./configure
+  - for Gtk+2
+      % ./configure
+    for Gtk+3
+      % ./configure  --with-gtk3
 
   - % make
 
@@ -53,6 +56,13 @@ You can copy this file to other directory as you like.
    HOME$Log/.hdslog-yyyymmdd
   will be created.
   This file remains even after the program finished.
+
+
+## Mail address list
+  Mail addresses are automatically stocked in
+   HOME$/.hdslog_mail.lst
+  The list is automatically loaded as mail address book when you send
+  a log to observers.
 
 
 ### Copyright ###

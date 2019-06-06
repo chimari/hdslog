@@ -834,6 +834,7 @@ void frame_tree_select_last(typHLOG *hl){
     = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreePath *path;
   GtkTreeIter  iter;
+  GtkAdjustment *adj;
 
   if(Flag_tree_editing) return;
   
@@ -847,6 +848,8 @@ void frame_tree_select_last(typHLOG *hl){
 			   path, NULL, FALSE);
   gtk_tree_path_free(path);
 
-  gtk_adjustment_set_value(gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin)),
-			   gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->upper-gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin))->page_size);
+  adj=gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(hl->scrwin));
+  gtk_adjustment_set_value(adj,
+			   gtk_adjustment_get_upper(adj)
+			   -gtk_adjustment_get_page_size(adj));
 }

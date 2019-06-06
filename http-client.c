@@ -527,6 +527,7 @@ int http_c_nonssl(typHLOG *hl)
     g_print("Cannot Chmod Temporary File %s!  Please check!!!\n",hl->http_dlfile);
   }
   
+  unlink_dlsz(hl);
   close(command_socket);
 
   return 0;
@@ -759,7 +760,7 @@ void popup_dl_camz_list(GtkWidget *w, gpointer gdata){
 }
 
 void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
-  GtkWidget *dialog, *vbox, *label, *button, *bar;
+  GtkWidget *dialog, *vbox, *label, *button, *bar, *hbox;
   gint timer=-1;
   static struct sigaction act;
   gchar *tmp;
@@ -833,12 +834,17 @@ void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		     label,FALSE,FALSE,0);
 
+
+  hbox = gtkut_hbox_new (FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     hbox,TRUE, TRUE, 0);
+
 #ifdef USE_GTK3
   button=gtkut_button_new_from_icon_name("Cancel","process-stop");
 #else
   button=gtkut_button_new_from_stock("Cancel",GTK_STOCK_CANCEL);
 #endif
-  gtk_dialog_add_action_widget(GTK_DIALOG(dialog),button,GTK_RESPONSE_CANCEL);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE,0),
   g_signal_connect(button,"pressed",
 		   G_CALLBACK(cancel_http), 
 		    (gpointer)hl);
