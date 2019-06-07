@@ -8,7 +8,6 @@ static void cell_editing();
 static void cell_canceled();
 static void cell_edited();
 
-gboolean flag_make_frame_tree;
 gboolean Flag_tree_editing=FALSE;
 
 void make_frame_tree(typHLOG *hl){
@@ -628,6 +627,14 @@ void frame_tree_update_item(typHLOG *hl,
   }
 }
 
+void frame_tree_update_note(typHLOG *hl, 
+			    GtkTreeModel *model, 
+			    GtkTreeIter iter, 
+			    gint i_frm)
+{
+  gtk_list_store_set (GTK_LIST_STORE(model), &iter,
+		      -1);
+}
 
 static void
 focus_frame_tree_item (GtkWidget *widget, gpointer data)

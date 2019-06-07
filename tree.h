@@ -31,5 +31,6 @@ enum
 
 void make_frame_tree();
 void frame_tree_update_item();
+void frame_tree_update_note();
 void frame_tree_select_last();
 

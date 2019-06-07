@@ -321,9 +321,9 @@ static void load_note (typHLOG *hl,gboolean force_fl)
 	if(i_buf>hl->frame[i].note.time){
 	  if(xmms_cfg_read_string(cfgfile, hl->frame[i].id,
 				  "note",&c_buf)){
+	    if(hl->frame[i].note.txt) g_free(hl->frame[i].note.txt);
 	    hl->frame[i].note.txt=g_strdup(c_buf);
 	    hl->frame[i].note.time=i_buf;
-
 	    if( (hl->frame[i].note.txt) && (!force_fl)){
 	      hl->frame[i].note.auto_fl=TRUE;
 	      //gtk_entry_set_text(GTK_ENTRY(hl->frame[i].w_note),
@@ -602,6 +602,7 @@ void make_top_table(typHLOG *hl){
 
 void update_frame_tree(typHLOG *hl){
   int i, col=0;
+  gchar *tmp;
   GtkTreeIter iter;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
@@ -611,23 +612,56 @@ void update_frame_tree(typHLOG *hl){
   fprintf(stderr, "Start Load\n");
 #endif
   if((hl->num_old==0)&&(hl->num!=0)){
+    // New load
     load_note(hl,TRUE);
   }
   else{
+    // No change or Appended New frame
     load_note(hl,FALSE);
   }
+
 #ifdef DEBUG
   fprintf(stderr, "End Load\n");
 #endif
-
-  if(hl->num_old==hl->num){
-  return;
-  }
   
-  for(i=hl->num_old;i<hl->num;i++){
-    gtk_list_store_insert (GTK_LIST_STORE (model), &iter, i);
-    frame_tree_update_item(hl, GTK_TREE_MODEL(model), iter, i);
-  }  
+  if(hl->num_old==hl->num){
+    if(flag_make_frame_tree){
+      if(!gtk_tree_model_get_iter_first(model, &iter)) return;
+      
+      for(i=0;i<hl->num_old;i++){
+	if(hl->frame[i].note.auto_fl){
+	  gtk_list_store_set(GTK_LIST_STORE(model), &iter, 
+			     COLUMN_FRAME_NOTE, hl->frame[i].note.txt, 
+			     -1);
+	  hl->frame[i].note.auto_fl=FALSE;
+	}
+	if(!gtk_tree_model_iter_next(model, &iter)) break;
+      }
+    }
+    //return;
+  }
+  else{
+    if(hl->next_note){
+      if(hl->frame[hl->num-1].note.txt) g_free(hl->frame[hl->num-1].note.txt);
+      hl->frame[hl->num-1].note.txt=g_strdup(hl->next_note);
+      gtk_entry_set_text(GTK_ENTRY(hl->e_note),"");
+      g_free(hl->next_note);
+      hl->next_note=NULL;
+    }
+
+    tmp=g_strdup_printf("%d - %2d (?)",
+			hl->frame[hl->num-1].idnum+2,
+			hl->frame[hl->num-1].idnum+3-
+			((int)((hl->frame[hl->num-1].idnum+3)/100))*100);
+    gtk_entry_set_text(GTK_ENTRY(hl->e_next),tmp);
+    g_free(tmp);
+
+    for(i=hl->num_old;i<hl->num;i++){
+      gtk_list_store_insert (GTK_LIST_STORE (model), &iter, i);
+      frame_tree_update_item(hl, GTK_TREE_MODEL(model), iter, i);
+    }  
+  }
+
 }
 
 
@@ -1550,6 +1584,7 @@ int main(int argc, char* argv[]){
   hl->camz_r=DEF_CAMZ_R;
   hl->echelle0=DEF_ECHELLE0;
   hl->camz_date=NULL;
+  flag_make_frame_tree=FALSE;
 
   read_ml(hl);
   popup_dl_camz_list(NULL, (gpointer)hl);

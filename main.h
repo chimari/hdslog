@@ -348,6 +348,7 @@ struct _typHLOG{
 
 
 pid_t http_pid;
+gboolean flag_make_frame_tree;
 
 gchar *fgets_new();
 
