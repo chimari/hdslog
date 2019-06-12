@@ -264,6 +264,8 @@ struct _typHLOG{
   GtkWidget *b_refresh;
   GtkWidget *w_status;
 
+  glong idnum0;
+
   gchar *data_dir;
 
   gchar *mail;
@@ -349,6 +351,8 @@ struct _typHLOG{
 
 pid_t http_pid;
 gboolean flag_make_frame_tree;
+gboolean Flag_tree_editing;
+
 
 gchar *fgets_new();
 

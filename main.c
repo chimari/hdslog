@@ -115,6 +115,7 @@ static void close_child_dialog(GtkWidget *w, GtkWidget *dialog)
   gtk_main_quit();
 }
 
+
 static void cc_get_adj (GtkWidget *widget, gint * gdata)
 {
   *gdata=(int)gtk_adjustment_get_value(GTK_ADJUSTMENT(widget));
@@ -446,6 +447,7 @@ void make_top_table(typHLOG *hl){
   gtk_editable_set_editable(GTK_EDITABLE(hl->e_next), FALSE);
   gtk_box_pack_start(GTK_BOX(hbox),hl->e_next,FALSE,FALSE,0);
 
+  Flag_tree_editing=FALSE;
   // Note
   hl->e_note = gtk_entry_new ();
   gtk_box_pack_start(GTK_BOX(hbox),hl->e_note,FALSE,FALSE,0);
@@ -455,6 +457,19 @@ void make_top_table(typHLOG *hl){
 		    G_CALLBACK(cc_get_entry),
 		    &hl->next_note);
   
+  label = gtk_label_new ("  Start from");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new(hl->idnum0,
+					    0, 99999999,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    &hl->idnum0);
+
   check = gtk_check_button_new_with_label("Auto Scroll");
   gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
   if(hl->scr_flag){
@@ -693,6 +708,7 @@ int printfits(typHLOG *hl, char *inf){
   static char last_frame_id[256];
   int ret=0;
   float f_buf;
+  glong idnum_tmp;
 
 
   fits_open_file(&fptr, inf, READONLY, &status);
@@ -702,105 +718,108 @@ int printfits(typHLOG *hl, char *inf){
   if(!strncmp(frame_id,"HDSA9999",8)) return;
 
   if((det_id==1)&&(strcmp(last_frame_id,frame_id)!=0)){  //Red
-    hl->frame[hl->num].id=g_strdup(frame_id);
-    cp=frame_id+5;
-    hl->frame[hl->num].idnum=atol(cp);
+    idnum_tmp=atol(frame_id+5);
+    if(idnum_tmp>=hl->idnum0){
+      hl->frame[hl->num].id=g_strdup(frame_id);
+      cp=frame_id+5;
+      hl->frame[hl->num].idnum=atol(cp);
 
 #ifdef DEBUG
-    printf("%s",hl->frame[hl->num].id);
+      printf("%s",hl->frame[hl->num].id);
 #endif
 
-    if(hl->num==0){
-      fits_read_key_str(fptr, "OBSERVER", observer, 0, &status);
-      hl->observer=g_strdup(observer);
+      if(hl->num==0){
+	fits_read_key_str(fptr, "OBSERVER", observer, 0, &status);
+	hl->observer=g_strdup(observer);
+	
+	fits_read_key_str(fptr, "PROP-ID", prop, 0, &status);
+	hl->prop=g_strdup(prop);
+      }
+      
+      switch(hl->file_head){
+      case FILE_HDSA:
+	fits_read_key_str(fptr, "OBJECT", obj_name, 0, &status);
+	break;
+      case FILE_hds:
+	fits_read_key_str(fptr, "DATA-TYP", obj_name, 0, &status);
+	break;
+      }
+      hl->frame[hl->num].name=g_strdup(obj_name);
+      
+      fits_read_key_flt(fptr, "EXPTIME", &f_buf, 0, &status);
+      hl->frame[hl->num].exp=(guint)f_buf;
+      
+      fits_read_key_str(fptr, "HST-STR", hst_str, 0, &status);
+      strncpy(hst,hst_str,5);
+      hst[5]='\0';
+      hl->frame[hl->num].hst=g_strdup(hst);
+      
+      fits_read_key_flt(fptr, "SECZ", &f_buf, 0, &status);
+      hl->frame[hl->num].secz=(gdouble)f_buf;
+      
+      fits_read_key_str(fptr, "FILTER01", filter01, 0, &status);
+      hl->frame[hl->num].fil1=g_strdup(filter01);
+      
+      fits_read_key_str(fptr, "FILTER02", filter02, 0, &status);
+      hl->frame[hl->num].fil2=g_strdup(filter02);
+      
+      fits_read_key_flt(fptr, "SLT-WID", &f_buf, 0, &status);
+      hl->frame[hl->num].slt_wid=((gdouble)f_buf*2);
+      
+      fits_read_key_flt(fptr, "SLT-LEN", &f_buf, 0, &status);
+      hl->frame[hl->num].slt_len=((gdouble)f_buf*2);
+      
+      fits_read_key_flt(fptr, "H_CROTAN", &f_buf, 0, &status);
+      hl->frame[hl->num].crotan=((gdouble)f_buf*3600.);
+      
+      fits_read_key_str(fptr, "H_CROSSD", crossd, 0, &status);
+      hl->frame[hl->num].crossd=g_strdup(crossd);
+      
+      // Standard or Non-Standard
+      select_color(&hl->frame[hl->num], hl->d_cross_b, hl->d_cross_r);
+      
+      fits_read_key_flt(fptr, "H_EROTAN", &f_buf, 0, &status);
+      hl->frame[hl->num].erotan=((gdouble)f_buf*3600.);
+      
+      fits_read_key_lng(fptr, "BIN-FCT1", &hl->frame[hl->num].bin1, 0, &status);
+      fits_read_key_lng(fptr, "BIN-FCT2", &hl->frame[hl->num].bin2, 0, &status);
 
-      fits_read_key_str(fptr, "PROP-ID", prop, 0, &status);
-      hl->prop=g_strdup(prop);
-    }
-    
-    switch(hl->file_head){
-    case FILE_HDSA:
-      fits_read_key_str(fptr, "OBJECT", obj_name, 0, &status);
-      break;
-    case FILE_hds:
-      fits_read_key_str(fptr, "DATA-TYP", obj_name, 0, &status);
-      break;
-    }
-    hl->frame[hl->num].name=g_strdup(obj_name);
+      fits_read_key_flt(fptr, "H_FOCUS", &f_buf, 0, &status);
+      hl->frame[hl->num].camz=(gint)(f_buf*1000);
 
-    fits_read_key_flt(fptr, "EXPTIME", &f_buf, 0, &status);
-    hl->frame[hl->num].exp=(guint)f_buf;
-
-    fits_read_key_str(fptr, "HST-STR", hst_str, 0, &status);
-    strncpy(hst,hst_str,5);
-    hst[5]='\0';
-    hl->frame[hl->num].hst=g_strdup(hst);
-
-    fits_read_key_flt(fptr, "SECZ", &f_buf, 0, &status);
-    hl->frame[hl->num].secz=(gdouble)f_buf;
-
-    fits_read_key_str(fptr, "FILTER01", filter01, 0, &status);
-    hl->frame[hl->num].fil1=g_strdup(filter01);
-
-    fits_read_key_str(fptr, "FILTER02", filter02, 0, &status);
-    hl->frame[hl->num].fil2=g_strdup(filter02);
-
-    fits_read_key_flt(fptr, "SLT-WID", &f_buf, 0, &status);
-    hl->frame[hl->num].slt_wid=((gdouble)f_buf*2);
-
-    fits_read_key_flt(fptr, "SLT-LEN", &f_buf, 0, &status);
-    hl->frame[hl->num].slt_len=((gdouble)f_buf*2);
-    
-    fits_read_key_flt(fptr, "H_CROTAN", &f_buf, 0, &status);
-    hl->frame[hl->num].crotan=((gdouble)f_buf*3600.);
-    
-    fits_read_key_str(fptr, "H_CROSSD", crossd, 0, &status);
-    hl->frame[hl->num].crossd=g_strdup(crossd);
-
-    // Standard or Non-Standard
-    select_color(&hl->frame[hl->num], hl->d_cross_b, hl->d_cross_r);
-
-    fits_read_key_flt(fptr, "H_EROTAN", &f_buf, 0, &status);
-    hl->frame[hl->num].erotan=((gdouble)f_buf*3600.);
-
-    fits_read_key_lng(fptr, "BIN-FCT1", &hl->frame[hl->num].bin1, 0, &status);
-    fits_read_key_lng(fptr, "BIN-FCT2", &hl->frame[hl->num].bin2, 0, &status);
-
-    fits_read_key_flt(fptr, "H_FOCUS", &f_buf, 0, &status);
-    hl->frame[hl->num].camz=(gint)(f_buf*1000);
-
-    fits_read_key_str(fptr, "H_I2POS", i2, 0, &status);
-    hl->frame[hl->num].i2=g_strdup(i2);
-    
-    fits_read_key_str(fptr, "IMR-TYPE", imr, 0, &status);
-    hl->frame[hl->num].imr=g_strdup(imr);
-
-    if(fits_read_key_lng(fptr, "H_ISUNIT", &is, 0, &status)!=KEY_NO_EXIST){
-      if(is==0){
-	hl->frame[hl->num].is=g_strdup("NONE   ");
+      fits_read_key_str(fptr, "H_I2POS", i2, 0, &status);
+      hl->frame[hl->num].i2=g_strdup(i2);
+      
+      fits_read_key_str(fptr, "IMR-TYPE", imr, 0, &status);
+      hl->frame[hl->num].imr=g_strdup(imr);
+      
+      if(fits_read_key_lng(fptr, "H_ISUNIT", &is, 0, &status)!=KEY_NO_EXIST){
+	if(is==0){
+	  hl->frame[hl->num].is=g_strdup("NONE   ");
+	}
+	else{
+	  fits_read_key_flt(fptr, "H_ISWID", &f_buf, 0, &status);
+	  iswid=(gdouble)f_buf;
+	  fits_read_key_lng(fptr, "H_ISSLIC", &isslic, 0, &status);
+	  hl->frame[hl->num].is=g_strdup_printf("%4.2lfx%d ",(gdouble)iswid*2.,(int)isslic);
+	}
       }
       else{
-	fits_read_key_flt(fptr, "H_ISWID", &f_buf, 0, &status);
-	iswid=(gdouble)f_buf;
-	fits_read_key_lng(fptr, "H_ISSLIC", &isslic, 0, &status);
-	hl->frame[hl->num].is=g_strdup_printf("%4.2lfx%d ",(gdouble)iswid*2.,(int)isslic);
+	hl->frame[hl->num].is=g_strdup("UNKNOWN");
       }
-    }
-    else{
-      hl->frame[hl->num].is=g_strdup("UNKNOWN");
-    }
-
-    fits_read_key_flt(fptr, "SLT-PA", &f_buf, 0, &status);
-    hl->frame[hl->num].slt_pa=(gdouble)f_buf;
+      
+      fits_read_key_flt(fptr, "SLT-PA", &f_buf, 0, &status);
+      hl->frame[hl->num].slt_pa=(gdouble)f_buf;
+      
+      fits_read_key_str(fptr, "ADC-TYPE", adc, 0, &status);
+      hl->frame[hl->num].adc=g_strdup(adc);
     
-    fits_read_key_str(fptr, "ADC-TYPE", adc, 0, &status);
-    hl->frame[hl->num].adc=g_strdup(adc);
-    
-
-    //printf("%s %s %4.0fs (%s)\n",frame_id,hst,exptime, obj_name);
-    strcpy(last_frame_id,frame_id);
-    hl->num++;
-    ret=1;
+      
+      //printf("%s %s %4.0fs (%s)\n",frame_id,hst,exptime, obj_name);
+      strcpy(last_frame_id,frame_id);
+      hl->num++;
+      ret=1;
+    }
   }
 
   qsort(hl->frame, hl->num, sizeof(FRAMEpara),
@@ -1508,6 +1527,7 @@ int main(int argc, char* argv[]){
 
   hl->data_dir=g_strdup(argv[1]);
   hl->num=0;
+  hl->idnum0=0;
   hl->file_head=FILE_HDSA;
   hl->mail=g_strdup(DEF_MAIL);
 

@@ -8,8 +8,6 @@ static void cell_editing();
 static void cell_canceled();
 static void cell_edited();
 
-gboolean Flag_tree_editing=FALSE;
-
 void make_frame_tree(typHLOG *hl){
   GtkWidget *vbox;
   GtkWidget *hbox;
@@ -850,7 +848,6 @@ void frame_tree_select_last(typHLOG *hl){
   for(i=0;i<hl->num-1;i++){
       gtk_tree_path_next(path);
   }
-  gtk_widget_grab_focus (hl->frame_tree);
   gtk_tree_view_set_cursor(GTK_TREE_VIEW(hl->frame_tree), 
 			   path, NULL, FALSE);
   gtk_tree_path_free(path);
