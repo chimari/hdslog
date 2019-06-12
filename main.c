@@ -184,6 +184,9 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
   tmpt2.tm_hour=9;
   tmpt2.tm_min=0;
   tmpt2.tm_sec=0;
+
+  if(hl->prop) g_free(hl->prop);
+  hl->prop=NULL;
   
   hl->fr_time=mktime(&tmpt2);
   hl->seek_time=hl->fr_time;
@@ -709,6 +712,7 @@ int printfits(typHLOG *hl, char *inf){
   int ret=0;
   float f_buf;
   glong idnum_tmp;
+  gboolean prop_ok;
 
 
   fits_open_file(&fptr, inf, READONLY, &status);
@@ -719,7 +723,21 @@ int printfits(typHLOG *hl, char *inf){
 
   if((det_id==1)&&(strcmp(last_frame_id,frame_id)!=0)){  //Red
     idnum_tmp=atol(frame_id+5);
-    if(idnum_tmp>=hl->idnum0){
+
+    if(hl->prop){
+      fits_read_key_str(fptr, "PROP-ID", prop, 0, &status);
+      if(strcmp(hl->prop,prop)==0){
+	prop_ok=TRUE;
+      }
+      else{
+	prop_ok=FALSE;
+      }
+    }
+    else{
+      prop_ok=TRUE;
+    }
+
+    if((idnum_tmp>=hl->idnum0)&&(prop_ok)){
       hl->frame[hl->num].id=g_strdup(frame_id);
       cp=frame_id+5;
       hl->frame[hl->num].idnum=atol(cp);
@@ -731,10 +749,11 @@ int printfits(typHLOG *hl, char *inf){
       if(hl->num==0){
 	fits_read_key_str(fptr, "OBSERVER", observer, 0, &status);
 	hl->observer=g_strdup(observer);
-	
+
 	fits_read_key_str(fptr, "PROP-ID", prop, 0, &status);
 	hl->prop=g_strdup(prop);
       }
+
       
       switch(hl->file_head){
       case FILE_HDSA:
@@ -1528,6 +1547,7 @@ int main(int argc, char* argv[]){
   hl->data_dir=g_strdup(argv[1]);
   hl->num=0;
   hl->idnum0=0;
+  hl->prop=NULL;
   hl->file_head=FILE_HDSA;
   hl->mail=g_strdup(DEF_MAIL);
 

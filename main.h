@@ -265,6 +265,7 @@ struct _typHLOG{
   GtkWidget *w_status;
 
   glong idnum0;
+  gchar *prop0;
 
   gchar *data_dir;
 
