@@ -1,7 +1,7 @@
 bin_PROGRAMS    = hdslog
 SUBDIRS=icons
 hdslog_SOURCES   =\
-	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c mltree.h resources.c resources.h
+	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c mltree.h resources.c resources.h mail.h
 INCLUDES        = @CFITSIO_CFLAGS@ @GTK_CFLAGS@ $(GTK3_CFLAGS)
 LDADD           = @CFITSIO_LIBS@ @GTK_LIBS@ $(GTK3_LIBS)
 

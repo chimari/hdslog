@@ -41,6 +41,7 @@
 #include "gtkut.h"
 #include "tree.h"
 #include "mltree.h"
+#include "mail.h"
 
 #define HDSLOG_DIR "Log"
 
@@ -74,7 +75,10 @@
 #define DEF_ECHELLE0 (+880)
 #define ALLOWED_DELTA_CROSS 10
 
-#define MAIL_LIST ".hdslog_mail.lst"
+// for sumda
+#define MAIL_LIST "/home/hds01/.hdslog_mail.lst"
+// for hdsobcpl
+// #define MAIL_LIST "/home/hdsuser/.hdslog_mail.lst"
 #define MAX_MAIL 1000
 
 
@@ -88,6 +92,38 @@
 #define DEF_MAIL "tajitsu@naoj.org"
 #define DEF_FROM "HDS Administrator <tajitsu@naoj.org>"
 #define MAIL_COMMAND "mutt"
+#define MUTT_FILE ".muttrc"
+#define MSMTP_FILE ".msmtprc"
+
+static gchar *muttrc_str[]={
+  "set charset=\"utf-8\"",
+  "set sendmail=\"/usr/bin/msmtp\"",
+  "set realname=\"Subaru HDS Observation Log\"",
+  "set from=\"" MAIL_ADDRESS "\"",
+  NULL
+};
+
+static gchar *msmtprc_str[]={
+  "# Set default values for all following accounts.",
+  "defaults",
+  "auth           on",
+  "tls            on",
+  "tls_trust_file /etc/ssl/certs/ca-bundle.crt",
+  "logfile        ~/.msmtp.log",
+  " ",
+  "# Gmail",
+  "account        gmail",
+  "host           smtp.gmail.com",
+  "port           587",
+  "from           " MAIL_ADDRESS,
+  "user           " MAIL_ID,
+  "password       " MAIL_PASS,
+  " ",
+  "# Set a default account",
+  "account default : gmail",
+  NULL
+};
+
 
 // Setup
 enum{ StdUb, StdUa, StdBa, StdBc, StdYa, StdI2b, StdYd, StdYb, StdYc, StdI2a, StdRa, StdRb, StdNIRc, StdNIRb, StdNIRa, StdHa} StdSetup;

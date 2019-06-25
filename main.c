@@ -13,6 +13,9 @@ gboolean flagChildDialog=FALSE;
 GtkWidget *frame_table;
 guint entry_height=24;
 
+void write_muttrc();
+void write_msmtprc();
+
 void ChildTerm();
 static void cc_get_adj ();
 static void cc_get_entry ();
@@ -56,6 +59,66 @@ const SetupEntry setups[] = {
   {"StdHa",  "MIRROR",0}
 };
 
+
+void write_muttrc(){
+  gchar *filename;
+  FILE *fp;
+  gint i=0;
+
+  filename=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,
+		       MUTT_FILE, NULL);
+  if(access(filename, F_OK)==0){
+    g_free(filename);
+    return;
+  }
+
+  fprintf(stderr," Creating MUTTRC file, \"%s\" .\n", filename);
+
+  if((fp=fopen(filename,"w"))==NULL){
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
+    exit(1);
+  }
+  
+  while(muttrc_str[i]){
+    fprintf(fp, "%s\n", muttrc_str[i]);
+    i++;
+  }
+
+  fclose(fp);
+  g_free(filename);
+}
+
+void write_msmtprc(){
+  gchar *filename;
+  FILE *fp;
+  gint i=0;
+
+  filename=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,
+		       MSMTP_FILE, NULL);
+  if(access(filename, F_OK)==0){
+    g_free(filename);
+    return;
+  }
+
+  fprintf(stderr," Creating MSMTPRC file, \"%s\" .\n", filename);
+
+  if((fp=fopen(filename,"w"))==NULL){
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
+    exit(1);
+  }
+  
+  while(msmtprc_str[i]){
+    fprintf(fp, "%s\n", msmtprc_str[i]);
+    i++;
+  }
+
+  fclose(fp);
+
+  if((chmod(filename, (S_IRUSR | S_IWUSR)))!=0){
+    fprintf(stderr," Cannot chmod MSMTPRC file, \"%s\" .\n", filename);
+  }
+  g_free(filename);
+}
 
 gchar *fgets_new(FILE *fp){
   gint c;
@@ -866,7 +929,7 @@ void SendMail(GtkWidget *w, gpointer gdata){
 	  hl->fr_year,hl->fr_month,hl->fr_day);
 
   if((fp=fopen(filename,"w"))==NULL){
-    fprintf(stderr," File Read Error  \"%s\" \n", filename);
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
     exit(1);
   }
   //fprintf(fp,"From: HDS administrator <tajitsu@subaru.naoj.org>\n");
@@ -1541,6 +1604,9 @@ int main(int argc, char* argv[]){
     mkdir(filename,(S_IRWXU|S_IRGRP|S_IROTH));
   }
   g_free(filename);
+
+  write_muttrc();
+  write_msmtprc();
 
   hl=g_malloc0(sizeof(typHLOG));
 
