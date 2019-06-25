@@ -60,6 +60,10 @@ const SetupEntry setups[] = {
 };
 
 
+gboolean my_main_iteration(gboolean may_block){
+  return(g_main_context_iteration(NULL, may_block));
+}
+
 void write_muttrc(){
   gchar *filename;
   FILE *fp;
@@ -291,11 +295,13 @@ gboolean create_lock (typHLOG *hl){
       //return(FALSE);
       gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			   "<span color=\"#FF0000\"><b>File Lock</b></span>");
+      while(my_main_iteration(FALSE));
       sleep(1);
     }
     else{
       gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			   "Scanning...");
+      while(my_main_iteration(FALSE));
       hl->lock_flag=TRUE;
       //return(TRUE);
       break;
@@ -319,6 +325,7 @@ static void wait_lock (typHLOG *hl){
   while(hl->lock_flag){
     gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			 "<span color=\"#FF0000\"><b>File Lock</b></span>");
+    while(my_main_iteration(FALSE));
     sleep(1);
   }
 }
@@ -674,6 +681,7 @@ void make_top_table(typHLOG *hl){
 
 
   hl->w_status = gtk_label_new ("Starting...");
+  while(my_main_iteration(FALSE));
   gtk_box_pack_start(GTK_BOX(hbox),hl->w_status,TRUE,TRUE,0);
 
 
@@ -1171,6 +1179,7 @@ gint printdir(typHLOG *hl){
 
   gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			 "Scanning...");
+  while(my_main_iteration(FALSE));
   
   if((dp = opendir(hl->data_dir)) == NULL){
     fprintf(stderr, "cannot open directory: %s\n",hl->data_dir);
@@ -1237,6 +1246,7 @@ gint printdir(typHLOG *hl){
 
   gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			 " ");
+  while(my_main_iteration(FALSE));
   
   if(hl->scr_flag){
     frame_tree_select_last(hl);
