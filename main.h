@@ -76,10 +76,6 @@
 #define DEF_ECHELLE0 (+880)
 #define ALLOWED_DELTA_CROSS 10
 
-// for sumda
-#define MAIL_LIST "/home/hds01/.hdslog_mail.lst"
-// for hdsobcpl
-// #define MAIL_LIST "/home/hdsuser/.hdslog_mail.lst"
 #define MAX_MAIL 1000
 
 

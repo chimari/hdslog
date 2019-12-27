@@ -547,22 +547,26 @@ void parse_address(typHLOG *hl){
   }
 
   
+  if(hl->ml_max>10){
+    if((fp=fopen(mlfile,"wb"))==NULL){
+      fprintf(stderr, "Error: Cannot open \"%s\".\n",mlfile);
+      g_free(mlfile);
+      return;
+    }
+    
+    for(i_ml=0;i_ml<hl->ml_max;i_ml++){
+      fprintf(fp,"%s,%d,%d,%d\n",
+	      hl->ml[i_ml].address,
+	      hl->ml[i_ml].year,
+	      hl->ml[i_ml].month,
+	      hl->ml[i_ml].day);
+    }
 
-  if((fp=fopen(mlfile,"wb"))==NULL){
-    fprintf(stderr, "Error: Cannot open \"%s\".\n",mlfile);
-    g_free(mlfile);
-    return;
+    fclose(fp);
   }
-
-  for(i_ml=0;i_ml<hl->ml_max;i_ml++){
-    fprintf(fp,"%s,%d,%d,%d\n",
-	    hl->ml[i_ml].address,
-	    hl->ml[i_ml].year,
-	    hl->ml[i_ml].month,
-	    hl->ml[i_ml].day);
+  else{
+    fprintf(stderr, "Skipped to save the mail list file \"%s\".\n",mlfile);
   }
-
-  fclose(fp);
   g_free(mlfile);
 }
 

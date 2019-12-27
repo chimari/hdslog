@@ -5,3 +5,4 @@
 #define MAIL_ADDRESS "gmail-id@gmail.com"
 #define MAIL_ID "gmail-id"
 #define MAIL_PASS "gmail-pass"
+#define MAIL_LIST "~/.hdslog_mail.lst"
