@@ -1149,26 +1149,6 @@ void do_mail (GtkWidget *widget, gpointer gdata)
   flagChildDialog=FALSE;
 }
 
-gint scan_command(gpointer gdata){
-  typHLOG *hl;
-//  static pid_t pid;
-
-  hl=(typHLOG *)gdata;
-  g_source_remove(hl->timer);
-  
-  //waitpid(pid,0,WNOHANG);
-  //if( (pid=fork())==0){
-  printdir(hl);
-  //  exit(-1);
-  //  signal(SIGCHLD,ChildTerm);
-  //}
-
-  hl->timer=g_timeout_add(READ_INTERVAL, 
-			  (GSourceFunc)scan_command, 
-			  (gpointer)hl);
-}
-
-
 gpointer thread_scan_command(gpointer gdata){
   typHLOG *hl=(typHLOG *)gdata;
 

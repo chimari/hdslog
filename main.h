@@ -390,6 +390,11 @@ struct _typHLOG{
   GMainLoop      *scloop;
   gint scanning_timer;
   gboolean scanning_flag;
+
+  GThread   *pthread;
+  GCancellable   *pcancel;
+  GMainLoop *ploop;
+  gboolean pabort;
 };
 
 

@@ -36,7 +36,6 @@ gint ssl_write();
 #endif
 
 gboolean progress_timeout();
-void httpdl_signal();
 
 void dl_camz_list();
 
@@ -46,6 +45,7 @@ void unlink_dlsz();
 glong get_dlsz();
 
 static void cancel_http();
+static void thread_cancel_http();
 
 void read_camz();
 
@@ -224,20 +224,16 @@ void PortReq(char *IPaddr , int *i1 , int *i2 , int *i3 , int *i4 , int *i5 , in
 
 
 
-int get_camz_list(typHLOG *hl){
-  waitpid(http_pid,0,WNOHANG);
+gpointer thread_get_camz_list(gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
 
-  if( (http_pid = fork()) <0){
-    fprintf(stderr,"fork error\n");
-  }
-  else if(http_pid ==0) {
-    http_c_nonssl(hl);
-    kill(getppid(), SIGHTTPDL);  //calling http_signal
-    _exit(1);
-  }
+  hl->pabort=FALSE;
+  
+  http_c_nonssl(hl);
 
-  return 0;
+  if(hl->ploop) g_main_loop_quit(hl->ploop);
 }
+
 
 void unchunk(gchar *dss_tmp){
   FILE *fp_read, *fp_write;
@@ -742,17 +738,6 @@ gboolean progress_timeout( gpointer data ){
 }
 
 
-void httpdl_signal(int sig){
-  pid_t child_pid=0;
-
-  gtk_main_quit();
-
-  do{
-    int child_ret;
-    child_pid=waitpid(http_pid, &child_ret,WNOHANG);
-  } while((child_pid>0)||(child_pid!=-1));
-}
-
 void popup_dl_camz_list(GtkWidget *w, gpointer gdata){
   typHLOG *hl = (typHLOG *)gdata;
   
@@ -760,9 +745,8 @@ void popup_dl_camz_list(GtkWidget *w, gpointer gdata){
 }
 
 void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
-  GtkWidget *dialog, *vbox, *label, *button, *bar, *hbox;
+  GtkWidget *vbox, *label, *button, *bar, *hbox;
   gint timer=-1;
-  static struct sigaction act;
   gchar *tmp;
 
   hl->http_ok=TRUE;
@@ -780,13 +764,13 @@ void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
 
   if(access(hl->http_dlfile, F_OK)==0) unlink(hl->http_dlfile);
 
-  dialog = gtk_dialog_new();
+  hl->pdialog = gtk_dialog_new();
   
-  gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_CENTER);
-  gtk_container_set_border_width(GTK_CONTAINER(dialog),5);
-  gtk_container_set_border_width(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),5);
-  gtk_window_set_title(GTK_WINDOW(dialog),"Subaru HDS LOG : Downloading Latest CamZ Values");
-  gtk_window_set_decorated(GTK_WINDOW(dialog),TRUE);
+  gtk_window_set_position(GTK_WINDOW(hl->pdialog), GTK_WIN_POS_CENTER);
+  gtk_container_set_border_width(GTK_CONTAINER(hl->pdialog),5);
+  gtk_container_set_border_width(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(hl->pdialog))),5);
+  gtk_window_set_title(GTK_WINDOW(hl->pdialog),"Subaru HDS LOG : Downloading Latest CamZ Values");
+  gtk_window_set_decorated(GTK_WINDOW(hl->pdialog),TRUE);
 
   label=gtkut_label_new("Downloading the latest CamZ ...");
 #ifdef USE_GTK3
@@ -795,13 +779,13 @@ void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
 #else
   gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
 #endif
-  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->pdialog))),
 		     label,TRUE,TRUE,0);
   gtk_widget_show(label);
   
   hl->http_dlsz=-1;
   hl->pbar=gtk_progress_bar_new();
-  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->pdialog))),
 		     hl->pbar,TRUE,TRUE,0);
   gtk_progress_bar_pulse(GTK_PROGRESS_BAR(hl->pbar));
 #ifdef USE_GTK3
@@ -821,7 +805,7 @@ void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
 #else
   bar = gtk_hseparator_new();
 #endif
-  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->pdialog))),
 		     bar,FALSE, FALSE, 0);
 
   label=gtkut_label_new("Checking the latest CamZ values ...");
@@ -831,12 +815,12 @@ void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
 #else
   gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
 #endif
-  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->pdialog))),
 		     label,FALSE,FALSE,0);
 
 
   hbox = gtkut_hbox_new (FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(hl->pdialog))),
 		     hbox,TRUE, TRUE, 0);
 
 #ifdef USE_GTK3
@@ -846,31 +830,31 @@ void dl_camz_list(typHLOG *hl,  gboolean flag_popup){
 #endif
   gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE,0),
   g_signal_connect(button,"pressed",
-		   G_CALLBACK(cancel_http), 
+		   G_CALLBACK(thread_cancel_http), 
 		    (gpointer)hl);
 
-  gtk_widget_show_all(dialog);
+  gtk_widget_show_all(hl->pdialog);
 
   timer=g_timeout_add(100, 
 		      (GSourceFunc)progress_timeout,
 		      (gpointer)hl);
   
-  act.sa_handler=httpdl_signal;
-  sigemptyset(&act.sa_mask);
-  act.sa_flags=0;
-  if(sigaction(SIGHTTPDL, &act, NULL)==-1){
-    fprintf(stderr,"Error in sigaction (SIGHTTPDL).\n");
-  }
-
-  gtk_window_set_modal(GTK_WINDOW(dialog),TRUE);
+  gtk_window_set_modal(GTK_WINDOW(hl->pdialog),TRUE);
   
-  get_camz_list(hl);
-  gtk_main();
+  hl->ploop=g_main_loop_new(NULL, FALSE);
+  hl->pcancel=g_cancellable_new();
+  hl->pthread=g_thread_new("hdslog_get_camz_list", thread_get_camz_list, (gpointer)hl);
+  g_main_loop_run(hl->ploop);
+  g_thread_join(hl->pthread);
+  g_main_loop_unref(hl->ploop);
+  hl->ploop=NULL;
+  //get_camz_list(hl);
+  //gtk_main();
   
-  gtk_window_set_modal(GTK_WINDOW(dialog),FALSE);
+  gtk_window_set_modal(GTK_WINDOW(hl->pdialog),FALSE);
   if(timer!=-1) g_source_remove(timer);
 
-  if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
+  if(GTK_IS_WIDGET(hl->pdialog)) gtk_widget_destroy(hl->pdialog);
 
   if(access(hl->http_dlfile, F_OK)==0){
     read_camz(hl);
@@ -969,29 +953,22 @@ glong get_dlsz(typHLOG *hl){
 }
 
 
-static void cancel_http(GtkWidget *w, gpointer gdata){
-  typHLOG *hl = (typHLOG *)gdata;
-  pid_t child_pid=0;
 
-  hl->http_ok=FALSE;
+static void thread_cancel_http(GtkWidget *w, gpointer gdata)
+{
+  typHLOG *hl=(typHLOG *)gdata;
 
-  if(http_pid){
-    kill(http_pid, SIGKILL);
-    gtk_main_quit();
+  if(GTK_IS_WIDGET(hl->pdialog)) gtk_widget_unmap(hl->pdialog);
 
-    do{
-      int child_ret;
-      child_pid=waitpid(http_pid, &child_ret,WNOHANG);
-    } while((child_pid>0)||(child_pid!=-1));
- 
-    http_pid=0;
-  }
-  else{
-    gtk_main_quit();
-  }
+  g_cancellable_cancel(hl->pcancel);
+  g_object_unref(hl->pcancel); 
+
+  hl->pabort=TRUE;
 
   unlink_dlsz(hl);
   if(access(hl->http_dlfile, F_OK)==0) unlink(hl->http_dlfile);
+
+  if(hl->ploop) g_main_loop_quit(hl->ploop);
 }
 
 
