@@ -1232,15 +1232,7 @@ gint printdir(typHLOG *hl){
   int newflag=0;
   int i,n;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
-<<<<<<< HEAD
- 
-=======
 
-  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
-			 "Scanning...");
-  while(my_main_iteration(FALSE));
-  
->>>>>>> f14475d9fae8ac398924a63a2320b86cd4f3844c
   if((dp = opendir(hl->data_dir)) == NULL){
     fprintf(stderr, "cannot open directory: %s\n",hl->data_dir);
     return;
@@ -1300,21 +1292,6 @@ gint printdir(typHLOG *hl){
   
   hl->seek_time=time(NULL);
   
-<<<<<<< HEAD
-=======
-  //update_frame_list(hl);
-  update_frame_tree(hl);
-  hl->num_old=hl->num;
-
-  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
-			 " ");
-  while(my_main_iteration(FALSE));
-  
-  if(hl->scr_flag){
-    frame_tree_select_last(hl);
-  }
-
->>>>>>> f14475d9fae8ac398924a63a2320b86cd4f3844c
 #ifdef DEBUG
   fprintf(stderr, "End of Read: %s\n",hl->data_dir);
 #endif
