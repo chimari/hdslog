@@ -20,7 +20,8 @@ void read_ml(typHLOG *hl){
   gchar *tmp;
   gint i_ml=0;
 
-  mlfile=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,MAIL_LIST,NULL);
+  //mlfile=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,MAIL_LIST,NULL);
+  mlfile=g_strdup(MAIL_LIST);
 
   if((fp=fopen(mlfile,"rb"))==NULL){
     fprintf(stderr, "Error: Cannot open \"%s\".\n",mlfile);
@@ -475,7 +476,8 @@ void parse_address(typHLOG *hl){
   
   gchar *addr[MAX_MAIL];
 
-  mlfile=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,MAIL_LIST,NULL);
+  //mlfile=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,MAIL_LIST,NULL);
+  mlfile=g_strdup(MAIL_LIST);
   fr_date=hl->fr_year*10000+hl->fr_month*100+hl->fr_day;
   
   cp=(gchar *)strtok(hl->mail,",");

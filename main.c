@@ -13,6 +13,9 @@ gboolean flagChildDialog=FALSE;
 GtkWidget *frame_table;
 guint entry_height=24;
 
+void write_muttrc();
+void write_msmtprc();
+
 void ChildTerm();
 static void cc_get_adj ();
 static void cc_get_entry ();
@@ -56,6 +59,70 @@ const SetupEntry setups[] = {
   {"StdHa",  "MIRROR",0}
 };
 
+
+gboolean my_main_iteration(gboolean may_block){
+  return(g_main_context_iteration(NULL, may_block));
+}
+
+void write_muttrc(){
+  gchar *filename;
+  FILE *fp;
+  gint i=0;
+
+  filename=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,
+		       MUTT_FILE, NULL);
+  if(access(filename, F_OK)==0){
+    g_free(filename);
+    return;
+  }
+
+  fprintf(stderr," Creating MUTTRC file, \"%s\" .\n", filename);
+
+  if((fp=fopen(filename,"w"))==NULL){
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
+    exit(1);
+  }
+  
+  while(muttrc_str[i]){
+    fprintf(fp, "%s\n", muttrc_str[i]);
+    i++;
+  }
+
+  fclose(fp);
+  g_free(filename);
+}
+
+void write_msmtprc(){
+  gchar *filename;
+  FILE *fp;
+  gint i=0;
+
+  filename=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,
+		       MSMTP_FILE, NULL);
+  if(access(filename, F_OK)==0){
+    g_free(filename);
+    return;
+  }
+
+  fprintf(stderr," Creating MSMTPRC file, \"%s\" .\n", filename);
+
+  if((fp=fopen(filename,"w"))==NULL){
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
+    exit(1);
+  }
+  
+  while(msmtprc_str[i]){
+    fprintf(fp, "%s\n", msmtprc_str[i]);
+    i++;
+  }
+
+  fclose(fp);
+
+  if((chmod(filename, (S_IRUSR | S_IWUSR)))!=0){
+    fprintf(stderr," Cannot chmod MSMTPRC file, \"%s\" .\n", filename);
+  }
+  g_free(filename);
+}
 
 gchar *fgets_new(FILE *fp){
   gint c;
@@ -228,11 +295,13 @@ gboolean create_lock (typHLOG *hl){
       //return(FALSE);
       gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			   "<span color=\"#FF0000\"><b>File Lock</b></span>");
+      while(my_main_iteration(FALSE));
       sleep(1);
     }
     else{
       gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			   "Scanning...");
+      while(my_main_iteration(FALSE));
       hl->lock_flag=TRUE;
       //return(TRUE);
       break;
@@ -256,6 +325,7 @@ static void wait_lock (typHLOG *hl){
   while(hl->lock_flag){
     gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			 "<span color=\"#FF0000\"><b>File Lock</b></span>");
+    while(my_main_iteration(FALSE));
     sleep(1);
   }
 }
@@ -611,6 +681,7 @@ void make_top_table(typHLOG *hl){
 
 
   hl->w_status = gtk_label_new ("Starting...");
+  while(my_main_iteration(FALSE));
   gtk_box_pack_start(GTK_BOX(hbox),hl->w_status,TRUE,TRUE,0);
 
 
@@ -866,7 +937,7 @@ void SendMail(GtkWidget *w, gpointer gdata){
 	  hl->fr_year,hl->fr_month,hl->fr_day);
 
   if((fp=fopen(filename,"w"))==NULL){
-    fprintf(stderr," File Read Error  \"%s\" \n", filename);
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
     exit(1);
   }
   //fprintf(fp,"From: HDS administrator <tajitsu@subaru.naoj.org>\n");
@@ -1161,7 +1232,15 @@ gint printdir(typHLOG *hl){
   int newflag=0;
   int i,n;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
+<<<<<<< HEAD
  
+=======
+
+  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 "Scanning...");
+  while(my_main_iteration(FALSE));
+  
+>>>>>>> f14475d9fae8ac398924a63a2320b86cd4f3844c
   if((dp = opendir(hl->data_dir)) == NULL){
     fprintf(stderr, "cannot open directory: %s\n",hl->data_dir);
     return;
@@ -1221,6 +1300,21 @@ gint printdir(typHLOG *hl){
   
   hl->seek_time=time(NULL);
   
+<<<<<<< HEAD
+=======
+  //update_frame_list(hl);
+  update_frame_tree(hl);
+  hl->num_old=hl->num;
+
+  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 " ");
+  while(my_main_iteration(FALSE));
+  
+  if(hl->scr_flag){
+    frame_tree_select_last(hl);
+  }
+
+>>>>>>> f14475d9fae8ac398924a63a2320b86cd4f3844c
 #ifdef DEBUG
   fprintf(stderr, "End of Read: %s\n",hl->data_dir);
 #endif
@@ -1583,6 +1677,9 @@ int main(int argc, char* argv[]){
     mkdir(filename,(S_IRWXU|S_IRGRP|S_IROTH));
   }
   g_free(filename);
+
+  write_muttrc();
+  write_msmtprc();
 
   hl=g_malloc0(sizeof(typHLOG));
 
