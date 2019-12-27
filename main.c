@@ -1097,6 +1097,62 @@ gint scan_command(gpointer gdata){
 			  (gpointer)hl);
 }
 
+
+gpointer thread_scan_command(gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+
+  printdir(hl);
+
+  if(hl->scloop) g_main_loop_quit(hl->scloop);
+}
+
+gboolean start_scan_command(gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+
+  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 "Scanning...");
+  
+  hl->scloop=g_main_loop_new(NULL, FALSE);
+  hl->scthread=g_thread_new("hdslog_scan",
+			    thread_scan_command, (gpointer)hl);
+  g_main_loop_run(hl->scloop);
+  g_thread_join(hl->scthread);
+  g_main_loop_unref(hl->scloop);
+
+  update_frame_tree(hl);
+  hl->num_old=hl->num;
+
+  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
+			 " ");
+  
+  if(hl->scr_flag){
+    frame_tree_select_last(hl);
+  }
+
+  hl->scloop=NULL;
+  hl->scanning_timer=-1;
+  return(FALSE);
+}
+
+gboolean check_scan (gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+
+  if(!hl->scanning_flag){
+    hl->scanning_timer=g_timeout_add(100, 
+				     (GSourceFunc)start_scan_command,
+				     (gpointer)hl);
+    hl->scanning_flag=TRUE;
+  }
+  else if (hl->scanning_timer<0){  // 2nd time
+    hl->scanning_timer=g_timeout_add(READ_INTERVAL, 
+				     (GSourceFunc)start_scan_command,
+				     (gpointer)hl);
+  }
+
+  return(TRUE);
+}
+
+
 gint printdir(typHLOG *hl){
   GtkTreeIter iter;
   DIR *dp;
@@ -1105,10 +1161,7 @@ gint printdir(typHLOG *hl){
   int newflag=0;
   int i,n;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
-
-  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
-			 "Scanning...");
-  
+ 
   if((dp = opendir(hl->data_dir)) == NULL){
     fprintf(stderr, "cannot open directory: %s\n",hl->data_dir);
     return;
@@ -1168,17 +1221,6 @@ gint printdir(typHLOG *hl){
   
   hl->seek_time=time(NULL);
   
-  //update_frame_list(hl);
-  update_frame_tree(hl);
-  hl->num_old=hl->num;
-
-  gtk_label_set_markup(GTK_LABEL(hl->w_status), 
-			 " ");
-  
-  if(hl->scr_flag){
-    frame_tree_select_last(hl);
-  }
-
 #ifdef DEBUG
   fprintf(stderr, "End of Read: %s\n",hl->data_dir);
 #endif
@@ -1633,8 +1675,9 @@ int main(int argc, char* argv[]){
 
   gui_init(hl);
 
-  hl->timer=g_timeout_add(READ_INTERVAL, 
-			  (GSourceFunc)scan_command, 
+  hl->scanning_flag=FALSE;
+  hl->timer=g_timeout_add(CHECK_INTERVAL, 
+			  (GSourceFunc)check_scan, 
 			  (gpointer)hl);
 
   gtk_main();

@@ -60,6 +60,7 @@
 #define SIGHTTPDL SIGUSR2
 #endif
 
+
 #define HDSLOG_HTTP_ERROR_GETHOST  -1
 #define HDSLOG_HTTP_ERROR_SOCKET   -2
 #define HDSLOG_HTTP_ERROR_CONNECT  -3
@@ -81,6 +82,7 @@
 #define RANDOMIZE() srand(time(NULL)+getpid())
 #define RANDOM(x)  (rand()%(x))
 
+#define CHECK_INTERVAL 1000
 #define READ_INTERVAL 5*1000
 
 #define MAX_FRAME 1000
@@ -347,6 +349,11 @@ struct _typHLOG{
   gint mltree_search_imax;
   gint mltree_search_i;
   gint mltree_search_iaddr[MAX_MAIL];
+
+  GThread        *scthread;
+  GMainLoop      *scloop;
+  gint scanning_timer;
+  gboolean scanning_flag;
 };
 
 
