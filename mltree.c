@@ -555,11 +555,13 @@ void parse_address(typHLOG *hl){
     }
     
     for(i_ml=0;i_ml<hl->ml_max;i_ml++){
-      fprintf(fp,"%s,%d,%d,%d\n",
-	      hl->ml[i_ml].address,
-	      hl->ml[i_ml].year,
-	      hl->ml[i_ml].month,
-	      hl->ml[i_ml].day);
+      if(strlen(hl->ml[i_ml].address)>3){
+	fprintf(fp,"%s,%d,%d,%d\n",
+		hl->ml[i_ml].address,
+		hl->ml[i_ml].year,
+		hl->ml[i_ml].month,
+		hl->ml[i_ml].day);
+      }
     }
 
     fclose(fp);

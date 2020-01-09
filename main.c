@@ -1079,6 +1079,8 @@ void do_mail (GtkWidget *widget, gpointer gdata)
     flagChildDialog=TRUE;
   }
 
+  read_ml(hl);
+
   hl->smdialog = gtk_dialog_new();
   gtk_container_set_border_width(GTK_CONTAINER(hl->smdialog),5);
   gtk_window_set_title(GTK_WINDOW(hl->smdialog),"HDS Log Editor : Send Mail");
@@ -1722,7 +1724,6 @@ int main(int argc, char* argv[]){
   hl->camz_date=NULL;
   flag_make_frame_tree=FALSE;
 
-  read_ml(hl);
   popup_dl_camz_list(NULL, (gpointer)hl);
   icon = gdk_pixbuf_new_from_resource ("/icons/subaru_icon.png", NULL);
   gtk_window_set_default_icon(icon);

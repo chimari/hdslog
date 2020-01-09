@@ -1,0 +1,3 @@
+2020.01.08 ver.1.2.1  - Read mail address when user popped up mail command
+	                dialog.
+	              - Skip short (blank) mail address.
