@@ -2,19 +2,17 @@
 // This must be edited before you upload files to github
 // Please Edit it for releases
 
-#define MAIL_ADDRESS "SubaruHDS@gmail.com"
-#define MAIL_ID "SubaruHDS"
-#define MAIL_PASS "MaunaKea13796"
-// for sumda
-#define MAIL_LIST "/home/hds01/.hdslog_mail.lst"
-// for hdsobcpl
-// #define MAIL_LIST "/home/hdsuser/.hdslog_mail.lst"
+#define MAIL_ADDRESS "gmail-id@gmail.com"
+#define MAIL_ID "gmail-id"
+#define MAIL_PASS "gmail-pass"
+
+#define MAIL_LIST "~/.hdslog_mail.lst"
 
 //// for sftp etc.
 
-#define SHARE_DIR "/home/hds01/share/data"
+#define SHARE_DIR "~/share/data"
 #define MASK_FILE "%s%sMask_%dx%d%s"
 
-#define SOSS_HOSTNAME "sumda.sum.subaru.nao.ac.jp"
-#define HDS01_UNAME "hds01"
+#define SOSS_HOSTNAME "soss_host_name"
+#define HDS01_UNAME "uname"
 #define SFTP_LOG "hdslog_sftp.log"
