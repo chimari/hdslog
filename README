@@ -3,7 +3,7 @@
 #                         Document file                                  #
 #                                                                        # 
 #                                                                        # 
-#                                  ver 1.2.1 2020/01/08                  # 
+#                                  ver 2.0.0 2020/02/11                  # 
 #                               Copyright (C) 2005 Akito Tajitsu         #
 #      Subaru Telescope, National Astronomical Observatory of Japan      #
 #                                               tajitsu_at_naoj.org      # 
@@ -25,6 +25,10 @@ in your terminal.
 This program is running under UNIX OSs with X window systems.
 Gtk+2 (default) or 3 is required.
 You need to use mutt with msmtp (recommended) to send logs via e-mail.
+
+xdotool, xgterm and IRAF environment for HDS data reduction (hdsql etc.) 
+are required to be installed to the system, if you want to use quick 
+reduction buttons.
 
 
 ### How to Make (for UNIX, Linux & Solaris) ###

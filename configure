@@ -628,6 +628,8 @@ GREP
 CPP
 CFITSIO_CFLAGS
 CFITSIO_LIBS
+LIBSSH2_LIBS
+LIBSSH2_CFLAGS
 OPENSSL_LIBS
 OPENSSL_CFLAGS
 GTK3_CFLAGS
@@ -762,6 +764,8 @@ PKG_CONFIG_PATH
 PKG_CONFIG_LIBDIR
 OPENSSL_CFLAGS
 OPENSSL_LIBS
+LIBSSH2_CFLAGS
+LIBSSH2_LIBS
 CPP'
 
 
@@ -1414,6 +1418,10 @@ Some influential environment variables:
               C compiler flags for OPENSSL, overriding pkg-config
   OPENSSL_LIBS
               linker flags for OPENSSL, overriding pkg-config
+  LIBSSH2_CFLAGS
+              C compiler flags for LIBSSH2, overriding pkg-config
+  LIBSSH2_LIBS
+              linker flags for LIBSSH2, overriding pkg-config
   CPP         C preprocessor
 
 Use these variables to override the choices made by `configure' or to help
@@ -2130,10 +2138,10 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 PACKAGE=hdslog
 
-MAJOR_VERSION=1
-MINOR_VERSION=2
-MICRO_VERSION=1
-EXTRA_VERSION=-20200108
+MAJOR_VERSION=2
+MINOR_VERSION=0
+MICRO_VERSION=0
+EXTRA_VERSION=-20200211
 VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION$EXTRA_VERSION
 
 ac_aux_dir=
@@ -2810,7 +2818,7 @@ am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
 
 
 
-ac_config_headers="$ac_config_headers config.h"
+ac_config_headers="$ac_config_headers config.h libssh2_config.h"
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -4033,7 +4041,7 @@ else
 #include <stdlib.h>
 
 int
-main ()
+main (void)
 {
   unsigned int major, minor, micro;
 
@@ -4616,6 +4624,88 @@ $as_echo "#define USE_SSL 1" >>confdefs.h
 	fi
 
 
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for LIBSSH2" >&5
+$as_echo_n "checking for LIBSSH2... " >&6; }
+
+if test -n "$LIBSSH2_CFLAGS"; then
+    pkg_cv_LIBSSH2_CFLAGS="$LIBSSH2_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libssh2\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libssh2") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_LIBSSH2_CFLAGS=`$PKG_CONFIG --cflags "libssh2" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$LIBSSH2_LIBS"; then
+    pkg_cv_LIBSSH2_LIBS="$LIBSSH2_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libssh2\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libssh2") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_LIBSSH2_LIBS=`$PKG_CONFIG --libs "libssh2" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        LIBSSH2_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libssh2" 2>&1`
+        else
+	        LIBSSH2_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libssh2" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$LIBSSH2_PKG_ERRORS" >&5
+
+	:
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	:
+else
+	LIBSSH2_CFLAGS=$pkg_cv_LIBSSH2_CFLAGS
+	LIBSSH2_LIBS=$pkg_cv_LIBSSH2_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	:
+fi
+	if test "x$LIBSSH2_LIBS" != "x"; then
+		CFLAGS="$CFLAGS $LIBSSH2_CFLAGS"
+		LIBS="$LIBS $LIBSSH2_LIBS"
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if libssh2 is available" >&5
+$as_echo_n "checking if libssh2 is available... " >&6; }
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	else
+                as_fn_error $? "LibSSH2 is required." "$LINENO" 5
+	fi
+
+
 # Check whether --with-cfitsio was given.
 if test "${with_cfitsio+set}" = set; then :
   withval=$with_cfitsio; without_cfitsio=yes
@@ -5170,6 +5260,7 @@ DEFS=-DHAVE_CONFIG_H
 
 ac_libobjs=
 ac_ltlibobjs=
+U=
 for ac_i in : $LIBOBJS; do test "x$ac_i" = x: && continue
   # 1. Remove the extension, and $U if already installed.
   ac_script='s/\$U\././;s/\.o$//;s/\.obj$//'
@@ -5801,6 +5892,7 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
+    "libssh2_config.h") CONFIG_HEADERS="$CONFIG_HEADERS libssh2_config.h" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "icons/Makefile") CONFIG_FILES="$CONFIG_FILES icons/Makefile" ;;

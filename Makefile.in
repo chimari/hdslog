@@ -84,8 +84,9 @@ subdir = .
 DIST_COMMON = INSTALL NEWS README AUTHORS ChangeLog \
 	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
-	$(srcdir)/config.h.in $(srcdir)/version.h.in depcomp COPYING \
-	config.guess config.sub install-sh missing ltmain.sh
+	$(srcdir)/config.h.in $(srcdir)/libssh2_config.h.in \
+	$(srcdir)/version.h.in depcomp COPYING config.guess config.sub \
+	install-sh missing ltmain.sh
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
@@ -93,14 +94,15 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
-CONFIG_HEADER = config.h
+CONFIG_HEADER = config.h libssh2_config.h
 CONFIG_CLEAN_FILES = version.h
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am_hdslog_OBJECTS = main.$(OBJEXT) configfile.$(OBJEXT) gui.$(OBJEXT) \
 	gtkut.$(OBJEXT) tree.$(OBJEXT) http-client.$(OBJEXT) \
-	mltree.$(OBJEXT) resources.$(OBJEXT)
+	mltree.$(OBJEXT) hdsql.$(OBJEXT) resources.$(OBJEXT) \
+	scp-client.$(OBJEXT)
 hdslog_OBJECTS = $(am_hdslog_OBJECTS)
 hdslog_LDADD = $(LDADD)
 am__DEPENDENCIES_1 =
@@ -157,7 +159,7 @@ am__recursive_targets = \
 AM_RECURSIVE_TARGETS = $(am__recursive_targets:-recursive=) TAGS CTAGS \
 	cscope distdir dist dist-all distcheck
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) \
-	$(LISP)config.h.in
+	$(LISP)config.h.in libssh2_config.h.in
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
 # *not* preserved.
@@ -260,6 +262,8 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LIBSSH2_CFLAGS = @LIBSSH2_CFLAGS@
+LIBSSH2_LIBS = @LIBSSH2_LIBS@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
@@ -337,7 +341,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = icons
 hdslog_SOURCES = \
-	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c mltree.h resources.c resources.h mail.h
+	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c hdsql.c mltree.h resources.c resources.h mail.h hdsql.h scp-client.c
 
 INCLUDES = @CFITSIO_CFLAGS@ @GTK_CFLAGS@ $(GTK3_CFLAGS)
 LDADD = @CFITSIO_LIBS@ @GTK_LIBS@ $(GTK3_LIBS)
@@ -349,7 +353,8 @@ CLEANFILES = *~ icons/*~ $(BUILT_SOURCES)
 DISTCLEANFILES = .deps/*.P
 AM_CPPFLAGS = -DLOCALEDIR=\""$(localedir)"\" -DCOMMON_DIR=\""$(commondir)"\"
 EXTRA_DIST = autogen.sh\
-	     gresource.xml
+	     gresource.xml\
+             libssh2_config.h.in
 
 BUILT_SOURCES = resources.c resources.h
 resource_files = $(shell $(GLIB_COMPILE_RESOURCES) --sourcedir=$(srcdir) --generate-dependencies $(srcdir)/gresource.xml)
@@ -357,7 +362,7 @@ GZIP_ENV =
 BZIP2_ENV = 
 TAR = tar
 ACLOCAL_AMFLAGS = -l m4
-all: $(BUILT_SOURCES) config.h
+all: $(BUILT_SOURCES) config.h libssh2_config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
 .SUFFIXES:
@@ -409,8 +414,16 @@ $(srcdir)/config.h.in:  $(am__configure_deps)
 	rm -f stamp-h1
 	touch $@
 
+libssh2_config.h: stamp-h2
+	@if test ! -f $@; then rm -f stamp-h2; else :; fi
+	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) stamp-h2; else :; fi
+
+stamp-h2: $(srcdir)/libssh2_config.h.in $(top_builddir)/config.status
+	@rm -f stamp-h2
+	cd $(top_builddir) && $(SHELL) ./config.status libssh2_config.h
+
 distclean-hdr:
-	-rm -f config.h stamp-h1
+	-rm -f config.h stamp-h1 libssh2_config.h stamp-h2
 version.h: $(top_builddir)/config.status $(srcdir)/version.h.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 install-binPROGRAMS: $(bin_PROGRAMS)
@@ -469,10 +482,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/configfile.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtkut.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hdsql.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/http-client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mltree.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resources.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scp-client.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tree.Po@am__quote@
 
 .c.o:
@@ -779,7 +794,7 @@ distcleancheck: distclean
 check-am: all-am
 check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-recursive
-all-am: Makefile $(PROGRAMS) config.h
+all-am: Makefile $(PROGRAMS) config.h libssh2_config.h
 installdirs: installdirs-recursive
 installdirs-am:
 	for dir in "$(DESTDIR)$(bindir)"; do \

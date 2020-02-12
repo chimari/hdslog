@@ -25,7 +25,7 @@ void make_frame_tree(typHLOG *hl){
   /* create tree view */
   hl->frame_tree = gtk_tree_view_new_with_model (items_model);
   gtk_tree_selection_set_mode (gtk_tree_view_get_selection (GTK_TREE_VIEW (hl->frame_tree)),
-			       GTK_SELECTION_SINGLE);
+			       GTK_SELECTION_MULTIPLE);
   frame_tree_add_columns (hl, GTK_TREE_VIEW (hl->frame_tree), 
 		       items_model);
 
@@ -113,6 +113,54 @@ static void frame_tree_add_columns (typHLOG *hl,
   gtk_tree_view_column_set_cell_data_func(column, renderer,
 					  frame_tree_cell_data_func,
 					  GUINT_TO_POINTER(COLUMN_FRAME_NAME),
+					  NULL);
+  gtk_tree_view_append_column(GTK_TREE_VIEW (treeview),column);
+
+
+  /* Quick Look column */
+  renderer = gtk_cell_renderer_text_new ();
+  g_object_set_data (G_OBJECT (renderer), "column", 
+		     GINT_TO_POINTER (COLUMN_FRAME_QLR));
+  
+  column = gtk_tree_view_column_new_with_attributes (NULL,
+						     renderer,
+						     "text", 
+						     COLUMN_FRAME_QLR,
+#ifdef USE_GTK3
+						     "foreground-rgba", COLUMN_FRAME_COLFG,
+						     "background-rgba", COLUMN_FRAME_COLBG,
+#else
+						     "foreground-gdk", COLUMN_FRAME_COLFG,
+						     "background-gdk", COLUMN_FRAME_COLBG,
+#endif					   
+						     NULL);
+  gtkut_tree_view_column_set_markup(column, "<span color=\"#FF0000\">R</span><sub>QL</sub>");
+  gtk_tree_view_column_set_cell_data_func(column, renderer,
+					  frame_tree_cell_data_func,
+					  GUINT_TO_POINTER(COLUMN_FRAME_QLR),
+					  NULL);
+  gtk_tree_view_append_column(GTK_TREE_VIEW (treeview),column);
+
+  renderer = gtk_cell_renderer_text_new ();
+  g_object_set_data (G_OBJECT (renderer), "column", 
+		     GINT_TO_POINTER (COLUMN_FRAME_QLB));
+  
+  column = gtk_tree_view_column_new_with_attributes (NULL,
+						     renderer,
+						     "text", 
+						     COLUMN_FRAME_QLB,
+#ifdef USE_GTK3
+						     "foreground-rgba", COLUMN_FRAME_COLFG,
+						     "background-rgba", COLUMN_FRAME_COLBG,
+#else
+						     "foreground-gdk", COLUMN_FRAME_COLFG,
+						     "background-gdk", COLUMN_FRAME_COLBG,
+#endif					   
+						     NULL);
+  gtkut_tree_view_column_set_markup(column, "<span color=\"#0000FF\">B</span><sub>QL</sub>");
+  gtk_tree_view_column_set_cell_data_func(column, renderer,
+					  frame_tree_cell_data_func,
+					  GUINT_TO_POINTER(COLUMN_FRAME_QLB),
 					  NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW (treeview),column);
 
@@ -507,6 +555,8 @@ frame_tree_create_items_model (typHLOG *hl)
 			      G_TYPE_INT,      //COLUMN_FRAME_NUMBER,
 			      G_TYPE_STRING,   //COLUMN_FRAME_ID,
 			      G_TYPE_STRING,   //COLUMN_FRAME_NAME,
+			      G_TYPE_BOOLEAN,  //COLUMN_FRAME_QLR,
+			      G_TYPE_BOOLEAN,  //COLUMN_FRAME_QLB,
 			      G_TYPE_STRING,   //COLUMN_FRAME_HST,
 			      G_TYPE_INT,      //COLUMN_FRAME_EXPTIME,
 			      G_TYPE_DOUBLE,   //COLUMN_FRAME_SECZ,
@@ -556,6 +606,8 @@ void frame_tree_update_item(typHLOG *hl,
 		      COLUMN_FRAME_NUMBER, i_frm,
 		      COLUMN_FRAME_ID,     hl->frame[i_frm].id,
 		      COLUMN_FRAME_NAME,   hl->frame[i_frm].name,
+		      COLUMN_FRAME_QLR,    hl->frame[i_frm].qlr,
+		      COLUMN_FRAME_QLB,    hl->frame[i_frm].qlb,
 		      COLUMN_FRAME_HST,    hl->frame[i_frm].hst,
 		      COLUMN_FRAME_EXPTIME,hl->frame[i_frm].exp,
 		      COLUMN_FRAME_SECZ,   hl->frame[i_frm].secz,
@@ -667,6 +719,7 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
   gint i_buf, i_buf2;
   gdouble d_buf, d_buf2;
   gchar *c_buf, *str, *c_buf2;
+  gboolean b_buf;
 
   switch (index) {
   case COLUMN_FRAME_ID:
@@ -699,6 +752,13 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
   case COLUMN_FRAME_ECHELLE:
     gtk_tree_model_get (model, iter, 
 			index, &d_buf,
+			-1);
+    break;
+
+  case COLUMN_FRAME_QLR:
+  case COLUMN_FRAME_QLB:
+    gtk_tree_model_get (model, iter, 
+			index, &b_buf,
 			-1);
     break;
   }
@@ -768,6 +828,16 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
     str=g_strdup_printf("%.0lf",d_buf);
     break;
 
+  case COLUMN_FRAME_QLR:
+  case COLUMN_FRAME_QLB:
+    if(b_buf){
+      str=g_strdup("o");
+    }
+    else{
+      str=g_strdup("-");
+    }
+    break;
+
   default:
     str=g_strdup(c_buf);
     break;
@@ -776,6 +846,7 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
   g_object_set(renderer, "text", str, NULL);
   if(str)g_free(str);
 }
+
 
 
 static void cell_editing (GtkCellRendererText *cell)
@@ -830,6 +901,27 @@ static void cell_edited (GtkCellRendererText *cell,
 
   Flag_tree_editing=FALSE;
   gtk_tree_path_free (path);
+}
+
+
+void frame_tree_update_ql (typHLOG *hl, gint i_sel){
+  GtkTreeModel *model 
+    = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
+  GtkTreeIter iter;
+  GtkTreePath *path;
+  gint i_frm;
+
+  path=gtk_tree_path_new_first();
+
+  for(i_frm=0;i_frm<i_sel;i_frm++){
+      gtk_tree_path_next(path);
+  }
+  gtk_tree_model_get_iter (model, &iter, path);
+
+  gtk_list_store_set(GTK_LIST_STORE(model), &iter, 
+		     COLUMN_FRAME_QLR, hl->frame[i_sel].qlr, -1);
+  gtk_list_store_set(GTK_LIST_STORE(model), &iter, 
+		     COLUMN_FRAME_QLB, hl->frame[i_sel].qlb, -1);
 }
 
 

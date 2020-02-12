@@ -1,3 +1,7 @@
+2020.02.11 ver.2.0.0  - Added quick reduction buttons.
+	                Ther communicate with IRAF xgterm via xdotool.
+                      - Upload CAL & database files to sumda.
+
 2020.01.08 ver.1.2.1  - Read mail address when user popped up mail command
 	                dialog.
 	              - Skip short (blank) mail address.

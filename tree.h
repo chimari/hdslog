@@ -2,6 +2,8 @@ enum
 { COLUMN_FRAME_NUMBER,
   COLUMN_FRAME_ID,
   COLUMN_FRAME_NAME,
+  COLUMN_FRAME_QLR,
+  COLUMN_FRAME_QLB,
   COLUMN_FRAME_HST,
   COLUMN_FRAME_EXPTIME,
   COLUMN_FRAME_SECZ,
@@ -33,4 +35,4 @@ void make_frame_tree();
 void frame_tree_update_item();
 void frame_tree_update_note();
 void frame_tree_select_last();
-
+void frame_tree_update_ql();

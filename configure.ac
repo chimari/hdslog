@@ -3,10 +3,10 @@ AC_INIT(main.c)
 PACKAGE=hdslog
 
 dnl version number
-MAJOR_VERSION=1
-MINOR_VERSION=2
-MICRO_VERSION=1
-EXTRA_VERSION=-20200108
+MAJOR_VERSION=2
+MINOR_VERSION=0
+MICRO_VERSION=0
+EXTRA_VERSION=-20200211
 VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION$EXTRA_VERSION
 
 dnl set $target
@@ -19,7 +19,7 @@ AC_SUBST(PACKAGE)
 AC_SUBST(VERSION)
 
 
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS([config.h libssh2_config.h])
 dnl AC_ARG_PROGRAM
 AC_PROG_CC
 AC_PROG_INSTALL
@@ -65,6 +65,17 @@ dnl Check for OpenSSL
 		AC_DEFINE(USE_SSL, 1, Define if you use OpenSSL to support SSL.)
 	else
                 AC_MSG_ERROR([OpenSSL is required.])
+	fi
+
+dnl Check for libssh2
+	PKG_CHECK_MODULES(LIBSSH2, libssh2, [:], [:])
+	if test "x$LIBSSH2_LIBS" != "x"; then
+		CFLAGS="$CFLAGS $LIBSSH2_CFLAGS"
+		LIBS="$LIBS $LIBSSH2_LIBS"
+		AC_MSG_CHECKING([if libssh2 is available])
+		AC_MSG_RESULT(yes)
+	else
+                AC_MSG_ERROR([LibSSH2 is required.])
 	fi
 
 dnl cfitsio

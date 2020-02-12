@@ -1,7 +1,7 @@
 bin_PROGRAMS    = hdslog
 SUBDIRS=icons
 hdslog_SOURCES   =\
-	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c mltree.h resources.c resources.h mail.h
+	 main.c main.h configfile.c configfile.h gui.c gui.h gtkut.c gtkut.h tree.c tree.h http-client.c mltree.c hdsql.c mltree.h resources.c resources.h mail.h hdsql.h scp-client.c
 INCLUDES        = @CFITSIO_CFLAGS@ @GTK_CFLAGS@ $(GTK3_CFLAGS)
 LDADD           = @CFITSIO_LIBS@ @GTK_LIBS@ $(GTK3_LIBS)
 
@@ -14,7 +14,8 @@ DISTCLEANFILES  = .deps/*.P
 AM_CPPFLAGS = -DLOCALEDIR=\""$(localedir)"\" -DCOMMON_DIR=\""$(commondir)"\"
 
 EXTRA_DIST = autogen.sh\
-	     gresource.xml
+	     gresource.xml\
+             libssh2_config.h.in
 
 BUILT_SOURCES=resources.c resources.h
 CLEANFILES += $(BUILT_SOURCES)

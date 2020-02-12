@@ -7,6 +7,7 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 #include<sys/stat.h>
 #include<time.h>
 #include<signal.h>
@@ -42,6 +43,7 @@
 #include "tree.h"
 #include "mltree.h"
 #include "mail.h"
+#include "hdsql.h"
 
 #define HDSLOG_DIR "Log"
 
@@ -50,10 +52,18 @@
 //#define SND_CMD "cat /opt/share/hds/kakunin.au > /dev/audio"
 #define SND_CMD "/usr/bin/audioplay /opt/share/hds/au/%s"
 
+#define XGTERM_COM "/usr/local/bin/xgterm -sb -sl 2000 -title %s -e \"cd ~;/usr/local/bin/cl\" &"
+
 #define HTTP_CAMZ_HOST "hds.skr.jp"
 #define HTTP_CAMZ_PATH  "/CamZ"
 #define HTTP_CAMZ_FILE "hdslog_camz.txt"
 #define HTTP_DLSZ_FILE   "hdslog_http_dlsz.txt"
+
+#define FRAME_QL_RED_LABEL  "<span color=\"#FF0000\"><b>Red</b></span> <span size=\"smaller\">(= odd frame ID)</span>"
+#define FRAME_QL_BLUE_LABEL "<span color=\"#0000FF\"><b>Blue</b></span> <span size=\"smaller\">(= even frame ID)</span>"
+
+enum{CAL_AP, CAL_FLAT, CAL_THAR, NUM_CAL};
+
 
 #ifdef SIGRTMIN
 #define SIGHTTPDL SIGRTMIN+1
@@ -78,6 +88,8 @@
 
 #define MAX_MAIL 1000
 
+#define XDOTMP "/tmp/hdslog_winid_%s.txt"
+#define UPARMTMP "/tmp/hdslog_uparm_%s.tmp"
 
 #define RANDOMIZE() srand(time(NULL)+getpid())
 #define RANDOM(x)  (rand()%(x))
@@ -128,6 +140,50 @@ enum{ StdUb, StdUa, StdBa, StdBc, StdYa, StdI2b, StdYd, StdYb, StdYc, StdI2a, St
 
 // FileHead
 enum{ FILE_HDSA, FILE_hds} FileHead;
+
+// Color
+enum{ COLOR_R, COLOR_B} ChipColor;
+
+// IRAF
+#define NUM_SET 5
+
+static gchar *hdsql_red[]={
+  "hdsql",
+  "hdsql2",
+  "hdsql4",
+  "hdsql6",
+  "hdsql8",
+  NULL
+};
+
+static gchar *hdsql_blue[]={
+  "hdsql1",
+  "hdsql3",
+  "hdsql5",
+  "hdsql7",
+  "hdsql9",
+  NULL
+};
+
+#define FLAT_TMP1 "/tmp/hdslog_flat_%s.txt"
+#define FLAT_TMP2 "/tmp/hdslog_flat_%s_omlx.txt"
+
+enum{  FLAT_EX_NO,
+       FLAT_EX_1,
+       FLAT_EX_SC,
+       FLAT_EX_SCNM,
+	 FLAT_EX_SCFL,
+	 NUM_FLAT_EX};
+
+static gchar *flat_ex[]={
+  "----",
+  "ave",
+  "sc",
+  "sc.nm",
+  "sc.fl",
+  NULL
+};
+       
 
 
 // Color for GUI
@@ -285,6 +341,9 @@ struct _FRAMEpara{
   gchar *is;
 
   GtkWidget *w_note;
+
+  gboolean qlr;
+  gboolean qlb;
 };
 
 typedef struct _typHLOG typHLOG;
@@ -297,6 +356,20 @@ struct _typHLOG{
   GtkWidget *e_note;
   GtkWidget *b_refresh;
   GtkWidget *w_status;
+
+  gchar *uname;
+  gchar *xdotmp;
+  gchar *uparmtmp;
+  gchar *flattmp1;
+  gchar *flattmp2;
+  gchar *wdir;
+  gchar *sdir;
+  gchar *ddir;
+  gchar *udir;
+
+  gchar *spass;
+
+  gchar *ref_frame;
 
   glong idnum0;
   gchar *prop0;
@@ -314,6 +387,7 @@ struct _typHLOG{
   gboolean lock_flag;
 
   gboolean scr_flag;
+  GtkWidget *scr_check;
 
   guint file_head;
   
@@ -391,6 +465,57 @@ struct _typHLOG{
   GCancellable   *pcancel;
   GMainLoop *ploop;
   gboolean pabort;
+
+  gint iraf_col;
+  gint iraf_hdsql_r;
+  gint iraf_hdsql_b;
+  gint iraf_order_r;
+  gint iraf_order_b;
+  gchar *file_write;
+  gchar *file_wait;
+
+  gint bin1_red[NUM_SET];
+  gint bin1_blue[NUM_SET];
+  gint bin2_red[NUM_SET];
+  gint bin2_blue[NUM_SET];
+
+  GtkWidget *frame_ql_red;
+  GtkWidget *frame_ql_blue;
+  gchar *setname_red[NUM_SET];
+  gchar *setname_blue[NUM_SET];
+
+  GtkWidget *check_ap_red;
+  GtkWidget *check_ap_blue;
+  gchar *ap_red[NUM_SET];
+  gchar *ap_blue[NUM_SET];
+  gboolean flag_ap_red[NUM_SET];
+  gboolean flag_ap_blue[NUM_SET];
+
+  GtkWidget *combo_flat_red;
+  GtkWidget *combo_flat_blue;
+  GtkWidget *button_flat_red;
+  GtkWidget *button_flat_blue;
+  gchar *flat_red[NUM_SET];
+  gchar *flat_blue[NUM_SET];
+  gint ex_flat_red[NUM_SET];
+  gint ex_flat_blue[NUM_SET];
+
+  GtkWidget *check_thar_red;
+  GtkWidget *check_thar_blue;
+  GtkWidget *button_thar_red;
+  GtkWidget *button_thar_blue;
+  gchar *thar_red[NUM_SET];
+  gchar *thar_blue[NUM_SET];
+  gboolean flag_thar_red[NUM_SET];
+  gboolean flag_thar_blue[NUM_SET];
+
+  GtkWidget *label_edit_ap;
+  GtkWidget *label_edit_flat;
+  GtkWidget *label_edit_thar;
+
+  GtkWidget *entry_ap_id;
+  GtkWidget *entry_thar_reid;
+  GtkWidget *entry_thar_id;
 };
 
 
@@ -399,6 +524,17 @@ gboolean flag_make_frame_tree;
 gboolean Flag_tree_editing;
 
 
+gchar* to_utf8();
+gchar* to_locale();
+
+void cc_get_entry ();
+void cc_get_combo_box ();
+
 gchar *fgets_new();
 
 void popup_dl_camz_list();
+gchar* get_setname_short();
+gchar* get_setname_long();
+
+int scp_write();
+
