@@ -913,7 +913,7 @@ int printfits(typHLOG *hl, char *inf){
       printf("%s",hl->frame[hl->num].id);
 #endif
       if(hl->file_head==FILE_HDSA){
-	tmp=g_strdup_printf("%sresult/H%d.fits",
+	tmp=g_strdup_printf("%s/result/H%d.fits",
 			    hl->wdir, hl->frame[hl->num].idnum);
 	if(access(tmp, F_OK)==0){
 	  hl->frame[hl->num].qlr=TRUE;
@@ -923,7 +923,7 @@ int printfits(typHLOG *hl, char *inf){
 	}
 	g_free(tmp);
 
-	tmp=g_strdup_printf("%sresult/H%d.fits",
+	tmp=g_strdup_printf("%s/result/H%d.fits",
 			    hl->wdir, hl->frame[hl->num].idnum+1);
 	if(access(tmp, F_OK)==0){
 	  hl->frame[hl->num].qlb=TRUE;
@@ -1041,37 +1041,14 @@ int printfits(typHLOG *hl, char *inf){
 void ScpCAL(GtkWidget *w, gpointer gdata){
   typHLOG *hl=(typHLOG *)gdata;
   
-  scp_write(hl);
+  scp_write_cal(hl);
   gtk_main_quit();
 }
 
-void SendMail(GtkWidget *w, gpointer gdata){
-  typHLOG *hl;
-  FILE *fp;
-  gchar filename[256];
-  gchar sub[256];
-  gchar command_line[512];
+void WriteLog(typHLOG *hl, FILE *fp){
   gint i;
 
-  hl=(typHLOG *)gdata;
-
-  sprintf(filename,  "%s%s%s%shdslog-%04d%02d%02d.txt",
-	  g_get_home_dir(), G_DIR_SEPARATOR_S,
-	  HDSLOG_DIR, G_DIR_SEPARATOR_S,
-	  hl->fr_year,hl->fr_month,hl->fr_day);
-
-  if((fp=fopen(filename,"w"))==NULL){
-    fprintf(stderr," File Write Error  \"%s\" \n", filename);
-    exit(1);
-  }
-  //fprintf(fp,"From: HDS administrator <tajitsu@subaru.naoj.org>\n");
-  //fprintf(fp,"To: %s\n",hl->mail);
-  //fprintf(fp,"Subject: HDS Obs LOG  %04d-%02d-%02d (HST)\n\n",
-  //	  hl->fr_year,hl->fr_month,hl->fr_day);
-
   fprintf(fp,"HDS Observation LOG  %04d-%02d-%02d (HST)\n\n",
-	  hl->fr_year,hl->fr_month,hl->fr_day);
-  sprintf(sub,"HDS Observation LOG  %04d-%02d-%02d (HST)",
 	  hl->fr_year,hl->fr_month,hl->fr_day);
 
   if(hl->observer){
@@ -1150,17 +1127,37 @@ void SendMail(GtkWidget *w, gpointer gdata){
   fprintf(fp,"  delta Cross Scan Blue : %+d\n", hl->d_cross_b);
   fprintf(fp,"  Echelle zero angle : %+d\n", hl->echelle0);
   fprintf(fp,"  \n");
+}
 
+void SendMail(GtkWidget *w, gpointer gdata){
+  typHLOG *hl;
+  FILE *fp;
+  gchar filename[256];
+  gchar sub[256];
+  gchar command_line[512];
+
+  hl=(typHLOG *)gdata;
+
+  sprintf(filename,  "%s%s%s%shdslog-%04d%02d%02d.txt",
+	  g_get_home_dir(), G_DIR_SEPARATOR_S,
+	  HDSLOG_DIR, G_DIR_SEPARATOR_S,
+	  hl->fr_year,hl->fr_month,hl->fr_day);
+
+  if((fp=fopen(filename,"w"))==NULL){
+    fprintf(stderr," File Write Error  \"%s\" \n", filename);
+    exit(1);
+  }
+
+  sprintf(sub,"HDS Observation LOG  %04d-%02d-%02d (HST)",
+	  hl->fr_year,hl->fr_month,hl->fr_day);
+
+  WriteLog(hl, fp);
 
   fclose(fp);
 
   sprintf(command_line,"cat %s | %s -s \"%s\" %s",
 	  filename, MAIL_COMMAND, sub, hl->mail);
-  //  sprintf(command_line,"cat %s | %s -r \"%s\" -s \"%s\" %s",
-  //	  filename, MAIL_COMMAND, DEF_FROM, sub, hl->mail);
-  //  fprintf(stderr,"%s\n",command_line);
   ext_play(command_line);
-  //printf("%s\n",command_line);
 
   parse_address(hl);
 
@@ -1469,7 +1466,7 @@ void do_dir (GtkWidget *widget, gpointer gdata)
   gtk_window_set_modal(GTK_WINDOW(dialog),TRUE);
   
 
-  table = gtkut_table_new (2, 3, FALSE, 2, 2, 2);
+  table = gtkut_table_new (2, 4, FALSE, 2, 2, 2);
   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
 		     table,FALSE, FALSE, 0);
   
@@ -1556,6 +1553,148 @@ void do_dir (GtkWidget *widget, gpointer gdata)
 		    "file-set",
 		    G_CALLBACK(cc_get_dir),
 		    (gpointer)&hl->sdir);
+
+  gtk_widget_show_all(dialog);
+  gtk_dialog_run(GTK_DIALOG(dialog));
+
+  if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
+  flagChildDialog=FALSE;
+}
+
+
+void do_remote (GtkWidget *widget, gpointer gdata)
+{
+  typHLOG *hl;
+  GtkWidget *dialog;
+  GtkWidget *check;
+  GtkWidget *button;
+  GtkWidget *label;
+  GtkWidget *entry;
+  GtkWidget *hbox;
+  GtkWidget *table;
+
+  hl=(typHLOG *)gdata;
+  
+  if(flagChildDialog){
+    return;
+  }
+  else{
+    flagChildDialog=TRUE;
+  }
+
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Remote Upload Setup",
+				       GTK_WINDOW(hl->w_top),
+				       GTK_DIALOG_MODAL,
+#ifdef USE_GTK3
+				       "_OK",GTK_RESPONSE_OK,
+#else
+				       GTK_STOCK_OK,GTK_RESPONSE_OK,
+#endif
+				       NULL);
+
+  gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK); 
+  gtk_widget_grab_focus(gtk_dialog_get_widget_for_response(GTK_DIALOG(dialog),
+							   GTK_RESPONSE_OK));
+
+  gtk_container_set_border_width(GTK_CONTAINER(dialog),5);
+  gtk_window_set_modal(GTK_WINDOW(dialog),TRUE);
+  
+
+  table = gtkut_table_new (2, 5, FALSE, 2, 2, 2);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     table,FALSE, FALSE, 0);
+  
+
+  check = gtk_check_button_new_with_label("Upload reduced spectra after every QL");
+  gtkut_table_attach(table, check, 0, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check), hl->remote_flag);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    &hl->remote_flag);
+
+  label=gtk_label_new("Host : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtk_label_new("User : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 2, 3,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtk_label_new("Password : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 3, 4,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtk_label_new("Upload directory : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 4, 5,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+
+
+  entry = gtk_entry_new ();
+  gtkut_table_attach(table, entry, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_entry_set_width_chars(GTK_ENTRY(entry),60);
+  if(hl->remote_host) gtk_entry_set_text(GTK_ENTRY(entry), hl->remote_host);
+  g_signal_connect (entry,
+		    "changed",
+		    G_CALLBACK(cc_get_entry),
+		    (gpointer)&hl->remote_host);
+
+  entry = gtk_entry_new ();
+  gtkut_table_attach(table, entry, 1, 2, 2, 3,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_entry_set_width_chars(GTK_ENTRY(entry),60);
+  if(hl->remote_user) gtk_entry_set_text(GTK_ENTRY(entry), hl->remote_user);
+  g_signal_connect (entry,
+		    "changed",
+		    G_CALLBACK(cc_get_entry),
+		    (gpointer)&hl->remote_user);
+
+  entry = gtk_entry_new ();
+  gtkut_table_attach(table, entry, 1, 2, 3, 4,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_entry_set_width_chars(GTK_ENTRY(entry),20);
+  if(hl->remote_pass) gtk_entry_set_text(GTK_ENTRY(entry), hl->remote_pass);
+  gtk_entry_set_visibility(GTK_ENTRY(entry), FALSE);
+  g_signal_connect (entry,
+		    "changed",
+		    G_CALLBACK(cc_get_entry),
+		    (gpointer)&hl->remote_pass);
+
+  entry = gtk_entry_new ();
+  gtkut_table_attach(table, entry, 1, 2, 4, 5,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_entry_set_width_chars(GTK_ENTRY(entry),60);
+  if(hl->remote_dir) gtk_entry_set_text(GTK_ENTRY(entry), hl->remote_dir);
+  g_signal_connect (entry,
+		    "changed",
+		    G_CALLBACK(cc_get_entry),
+		    (gpointer)&hl->remote_dir);
 
   gtk_widget_show_all(dialog);
   gtk_dialog_run(GTK_DIALOG(dialog));
@@ -1929,6 +2068,20 @@ GtkWidget *make_menu(typHLOG *hl){
   gtk_container_add (GTK_CONTAINER (menu), popup_button);
   g_signal_connect (popup_button, "activate", 
 		    G_CALLBACK(do_dir), (gpointer)hl);
+
+  //// IRAF/Upload
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("network-transmit", GTK_ICON_SIZE_MENU);
+  popup_button =gtkut_image_menu_item_new_with_label (image, "Upload reduced spectra");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_SAVE, GTK_ICON_SIZE_MENU);
+  popup_button =gtk_image_menu_item_new_with_label ("Upload reduced spectra");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+  gtk_widget_show (popup_button);
+  gtk_container_add (GTK_CONTAINER (menu), popup_button);
+  g_signal_connect (popup_button, "activate",G_CALLBACK(do_remote),(gpointer)hl);
+
 
   //// Info
 #ifdef USE_GTK3
@@ -2719,6 +2872,12 @@ int main(int argc, char* argv[]){
     hl->flag_thar_blue[i]=FALSE;
   }
 
+  hl->remote_flag=FALSE;
+  hl->remote_host=g_strdup(REMOTE_HOST);
+  hl->remote_user=g_strdup(REMOTE_USER);
+  hl->remote_pass=NULL;
+  hl->remote_dir=g_strdup(REMOTE_DIR);
+  
   gtk_init(&argc, &argv);
 
 #ifndef USE_GTK3

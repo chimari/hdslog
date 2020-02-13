@@ -1,5 +1,6 @@
 2020.02.12 ver.2.0.1  - Added iteration for "Scanning" markup.
                       - Added folder selection dialog.
+	              - Upload reduced spectra to remote server via scp.
 
 2020.02.11 ver.2.0.0  - Added quick reduction buttons.
 	                Ther communicate with IRAF xgterm via xdotool.

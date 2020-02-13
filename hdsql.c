@@ -403,7 +403,6 @@ gchar *get_work_dir_sumda(typHLOG *hl){
 		  "work",
 		  G_DIR_SEPARATOR_S,
 		  hl->uname,
-		  G_DIR_SEPARATOR_S,
 		  NULL);
 
   return(ret);
@@ -417,7 +416,6 @@ gchar *get_data_dir_sumda(typHLOG *hl){
 		  "data",
 		  G_DIR_SEPARATOR_S,
 		  hl->uname,
-		  G_DIR_SEPARATOR_S,
 		  NULL);
 
   return(ret);
@@ -432,8 +430,7 @@ gchar *get_uparm_dir_sumda(typHLOG *hl){
 		  G_DIR_SEPARATOR_S,
 		  hl->uname,
 		  G_DIR_SEPARATOR_S,
-		  "uparm"
-		  G_DIR_SEPARATOR_S,
+		  "uparm",
 		  NULL);
 
   return(ret);
@@ -559,9 +556,9 @@ void edit_uparm(typHLOG *hl, gchar *key, gchar *type, gchar *data){
   else{
     str_flag=FALSE;
   }
-  infile=g_strconcat("/home/",
-		     hl->uname,
-		     "/uparm/vo",
+  infile=g_strconcat(hl->udir,
+		     G_DIR_SEPARATOR_S,
+		     "vo",
 		     (hl->iraf_col==COLOR_R) ? 
 		     hdsql_red[hl->iraf_hdsql_r] : hdsql_blue[hl->iraf_hdsql_b], 
 		     ".par",
@@ -985,6 +982,7 @@ gboolean ow_check(typHLOG *hl, gchar* file_in){
   gboolean ret=FALSE;
 
   filename=g_strconcat(hl->wdir,
+		       G_DIR_SEPARATOR_S,
 		       file_in, 
 		       ".fits",
 		       NULL);
@@ -1371,7 +1369,7 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
   g_free(tmp);
   if(winid>0){
     if(hl->file_wait) g_free(hl->file_wait);
-    hl->file_wait=g_strdup_printf("%sresult/H%d.fits",
+    hl->file_wait=g_strdup_printf("%s/result/H%d.fits",
 			     hl->wdir, i_file);
     if(access(hl->file_wait, F_OK)==0){
       if(!popup_dialog(hl->w_top, 
@@ -1481,6 +1479,10 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
       hl->frame[i_sel].qlb=TRUE;
     }
     frame_tree_update_ql(hl, i_sel);
+
+    if((hl->remote_flag) && (!splot_flag)){
+      scp_write_remote(hl, hl->file_wait);
+    }
   }
   else{
     xdo_error(hl, winid);
@@ -1581,8 +1583,8 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
       edit_uparm(hl,"indirec","s",indir);
       
       if(hl->file_wait) g_free(hl->file_wait);
-      hl->file_wait=g_strdup_printf("%sH%dom.fits",
-				  hl->wdir,
+      hl->file_wait=g_strdup_printf("%s/H%dom.fits",
+				    hl->wdir,
 				    i_file);
       if(access(hl->file_wait, F_OK)==0){
 	unlink(hl->file_wait);
@@ -1639,7 +1641,7 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
       }
       frame_tree_update_ql(hl, i_sel);
 
-      ecfile=g_strdup_printf("%s%s.ec.fits",
+      ecfile=g_strdup_printf("%s/%s.ec.fits",
 			     hl->wdir,
 			     hl->file_write);
       if(access(ecfile, F_OK)==0){
@@ -1742,6 +1744,7 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
 #ifdef __GTK_TOOLTIP_H__
       tmp=g_strconcat("Find Ref in ",
 		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
 		      NULL);
       gtk_widget_set_tooltip_text(button,tmp);
       g_free(tmp);
@@ -1757,8 +1760,9 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
      			G_CALLBACK (ref2_ap), (gpointer)hl);
 #ifdef __GTK_TOOLTIP_H__
       tmp=g_strconcat("Find Ref in ",
-	hl->sdir,
-	NULL);
+		      hl->sdir,
+		      G_DIR_SEPARATOR_S,
+		      NULL);
       gtk_widget_set_tooltip_text(button,tmp);
       g_free(tmp);
 #endif
@@ -1981,7 +1985,7 @@ void iraf_flat(typHLOG *hl, gint i_sel, gint i_file){
     indir=get_indir(hl);
     
     if(hl->file_wait) g_free(hl->file_wait);
-    hl->file_wait=g_strdup_printf("%sH%domlx.fits",
+    hl->file_wait=g_strdup_printf("%s/H%domlx.fits",
 				  hl->wdir,
 				  i_file);
     if(access(hl->file_wait, F_OK)==0){
@@ -2046,18 +2050,19 @@ void make_flat(typHLOG *hl){
   g_free(tmp);
   if(winid>0){
     if(flat_ow_check==FLAT_OW_GO){
-      tmp=g_strdup_printf("cp %s %s%s.lst", hl->flattmp1, hl->wdir, hl->file_write);
+      tmp=g_strdup_printf("cp %s %s/%s.lst", hl->flattmp1, hl->wdir, hl->file_write);
       system(tmp);
       g_free(tmp);
       unlink(hl->flattmp1);
       
-      tmp=g_strdup_printf("cp %s %s%s_omlx.lst", hl->flattmp2, hl->wdir, hl->file_write);
+      tmp=g_strdup_printf("cp %s %s/%s_omlx.lst", hl->flattmp2, hl->wdir, hl->file_write);
       system(tmp);
       g_free(tmp);
       unlink(hl->flattmp2);
 
       if(hl->file_wait) g_free(hl->file_wait);
       hl->file_wait=g_strconcat(hl->wdir,
+				G_DIR_SEPARATOR_S,
 				hl->file_write,
 				".fits",
 				NULL);
@@ -2104,6 +2109,7 @@ void make_flat(typHLOG *hl){
 
     if(hl->file_wait) g_free(hl->file_wait);
     hl->file_wait=g_strconcat(hl->wdir,
+			      G_DIR_SEPARATOR_S,
 			      scfile,
 			      ".fits",
 			      NULL);
@@ -2220,6 +2226,7 @@ void make_flat(typHLOG *hl){
 
 	  if(hl->file_wait) g_free(hl->file_wait);
 	  hl->file_wait=g_strconcat(hl->wdir,
+				    G_DIR_SEPARATOR_S,
 				    nmfile,
 				    ".fits",
 				    NULL);
@@ -2266,6 +2273,7 @@ void make_flat(typHLOG *hl){
 
 	  if(hl->file_wait) g_free(hl->file_wait);
 	  hl->file_wait=g_strconcat(hl->wdir,
+				    G_DIR_SEPARATOR_S,
 				    nmfile,
 				    ".fits",
 				    NULL);
@@ -2458,7 +2466,7 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
       edit_uparm(hl,"indirec","s",indir);
       
       if(hl->file_wait) g_free(hl->file_wait);
-      hl->file_wait=g_strdup_printf("%sH%dom_ec.fits",
+      hl->file_wait=g_strdup_printf("%s/H%dom_ec.fits",
 				    hl->wdir,
 				    i_file);
       if(access(hl->file_wait, F_OK)==0){
@@ -2615,6 +2623,7 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
 #ifdef __GTK_TOOLTIP_H__
       tmp=g_strconcat("Find Ref in ",
 		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
 		      NULL);
       gtk_widget_set_tooltip_text(button,tmp);
       g_free(tmp);
@@ -2630,8 +2639,9 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
      			G_CALLBACK (ref2_thar), (gpointer)hl);
 #ifdef __GTK_TOOLTIP_H__
       tmp=g_strconcat("Find Ref in ",
-	hl->sdir,
-	NULL);
+		      hl->sdir,
+		      G_DIR_SEPARATOR_S,
+		      NULL);
       gtk_widget_set_tooltip_text(button,tmp);
       g_free(tmp);
 #endif
@@ -2810,6 +2820,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     if(hl->iraf_col==COLOR_R){
       if(hl->ap_red[hl->iraf_hdsql_r]){
 	fp_file=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    hl->ap_red[hl->iraf_hdsql_r],
 			    ".fits",
 			    NULL);
@@ -2818,6 +2829,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     else{
       if(hl->ap_blue[hl->iraf_hdsql_b]){
 	fp_file=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    hl->ap_blue[hl->iraf_hdsql_b],
 			    ".fits",
 			    NULL);
@@ -2830,6 +2842,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     if(hl->iraf_col==COLOR_R){
       if(hl->flat_red[hl->iraf_hdsql_r]){
 	fp_file=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    hl->flat_red[hl->iraf_hdsql_r],
 			    ".fits",
 			    NULL);
@@ -2838,6 +2851,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     else{
       if(hl->flat_blue[hl->iraf_hdsql_b]){
 	fp_file=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    hl->flat_blue[hl->iraf_hdsql_b],
 			    ".fits",
 			    NULL);
@@ -2850,6 +2864,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     if(hl->iraf_col==COLOR_R){
       if(hl->thar_red[hl->iraf_hdsql_r]){
 	fp_file=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    hl->thar_red[hl->iraf_hdsql_r],
 			    ".fits",
 			    NULL);
@@ -2858,6 +2873,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     else{
       if(hl->thar_blue[hl->iraf_hdsql_b]){
 	fp_file=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    hl->thar_blue[hl->iraf_hdsql_b],
 			    ".fits",
 			    NULL);
@@ -3089,6 +3105,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 			  fits_file,
 			  " ",
 			  hl->wdir,
+			  G_DIR_SEPARATOR_S,
 			  NULL);
 	  system(tmp);
 	  g_free(tmp);
@@ -3155,6 +3172,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 			  fits_file,
 			  " ",
 			  hl->wdir,
+			  G_DIR_SEPARATOR_S,
 			  NULL);
 	  system(tmp);
 	  g_free(tmp);
@@ -3452,6 +3470,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     // Ap
     if(!hl->ap_red[hl->iraf_hdsql_r]){
       ap_fits=g_strconcat(hl->wdir,
+			  G_DIR_SEPARATOR_S,
 			  "Ap",
 			  set_name,
 			  ".fits",
@@ -3474,6 +3493,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     // ThAr
     if(!hl->thar_red[hl->iraf_hdsql_r]){
       thar_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "ThAr",
 			    set_name,
 			    ".fits",
@@ -3494,6 +3514,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     while(1){
       // sc.nm
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".sc.nm.fits",
@@ -3511,6 +3532,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
       // sc.fl
       g_free(flat_fits);
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".sc.fl.fits",
@@ -3528,6 +3550,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
       // sc
       g_free(flat_fits);
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".sc.fits",
@@ -3545,6 +3568,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
       // ave
       g_free(flat_fits);
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".fits",
@@ -3572,6 +3596,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     // Ap
     if(!hl->ap_blue[hl->iraf_hdsql_b]){
       ap_fits=g_strconcat(hl->wdir,
+			  G_DIR_SEPARATOR_S,
 			  "Ap",
 			  set_name,
 			  ".fits",
@@ -3592,6 +3617,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     // ThAr
     if(!hl->thar_blue[hl->iraf_hdsql_b]){
       thar_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "ThAr",
 			    set_name,
 			    ".fits",
@@ -3612,6 +3638,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     while(1){
       // sc.nm
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".sc.nm.fits",
@@ -3629,6 +3656,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
       // sc.fl
       g_free(flat_fits);
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".sc.fl.fits",
@@ -3646,6 +3674,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
       // sc
       g_free(flat_fits);
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".sc.fits",
@@ -3663,6 +3692,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
       // ave
       g_free(flat_fits);
       flat_fits=g_strconcat(hl->wdir,
+			    G_DIR_SEPARATOR_S,
 			    "Flat",
 			    set_name,
 			    ".fits",

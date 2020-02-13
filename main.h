@@ -59,6 +59,11 @@
 #define HTTP_CAMZ_FILE "hdslog_camz.txt"
 #define HTTP_DLSZ_FILE   "hdslog_http_dlsz.txt"
 
+#define REMOTE_HOST "hds.skr.jp"
+#define REMOTE_USER "rosegray"
+#define REMOTE_DIR "/home/rosegray/www/hds/Data/"
+
+
 #define FRAME_QL_RED_LABEL  "<span color=\"#FF0000\"><b>Red</b></span> <span size=\"smaller\">(= odd frame ID)</span>"
 #define FRAME_QL_BLUE_LABEL "<span color=\"#0000FF\"><b>Blue</b></span> <span size=\"smaller\">(= even frame ID)</span>"
 
@@ -71,6 +76,7 @@ enum{CAL_AP, CAL_FLAT, CAL_THAR, NUM_CAL};
 #define SIGHTTPDL SIGUSR2
 #endif
 
+#define POPUP_TIMEOUT 2
 
 #define HDSLOG_HTTP_ERROR_GETHOST  -1
 #define HDSLOG_HTTP_ERROR_SOCKET   -2
@@ -516,6 +522,12 @@ struct _typHLOG{
   GtkWidget *entry_ap_id;
   GtkWidget *entry_thar_reid;
   GtkWidget *entry_thar_id;
+
+  gboolean remote_flag;
+  gchar *remote_host;
+  gchar *remote_user;
+  gchar *remote_pass;
+  gchar *remote_dir;
 };
 
 
@@ -532,9 +544,10 @@ void cc_get_combo_box ();
 
 gchar *fgets_new();
 
+void WriteLog();
+
 void popup_dl_camz_list();
 gchar* get_setname_short();
 gchar* get_setname_long();
 
-int scp_write();
-
+int scp_write_cal();
