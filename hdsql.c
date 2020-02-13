@@ -1099,6 +1099,7 @@ gchar *get_indir(typHLOG *hl){
   gchar*ret;
 
   ret=g_strconcat(hl->ddir,
+		  G_DIR_SEPARATOR_S,
 		  "HDSA00",
 		  NULL);
 

@@ -212,6 +212,12 @@ void cc_get_entry (GtkWidget *widget, gchar **gdata)
   *gdata=g_strdup(gtk_entry_get_text(GTK_ENTRY(widget)));
 }
 
+void cc_get_dir (GtkWidget *widget, gchar **gdata)
+{
+  g_free(*gdata);
+  *gdata=g_strdup(gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(widget)));
+}
+
 static void cc_get_note (GtkWidget *widget, gpointer gdata)
 {
   NOTEpara *nt;
@@ -354,13 +360,13 @@ gboolean create_lock (typHLOG *hl){
       printf ("%d - Lock already present   %s\n",getpid(), lockfile);
       gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			   "<span color=\"#FF0000\"><b>File Lock</b></span>");
-      //while(my_main_iteration(FALSE));
+      while(my_main_iteration(FALSE));
       sleep(1);
     }
     else{
       gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			   "Scanning...");
-      //while(my_main_iteration(FALSE));
+      while(my_main_iteration(FALSE));
       hl->lock_flag=TRUE;
       break;
     }
@@ -1426,12 +1432,148 @@ void do_scp (GtkWidget *widget, gpointer gdata)
 }
 
 
+void do_dir (GtkWidget *widget, gpointer gdata)
+{
+  typHLOG *hl;
+  GtkWidget *dialog;
+  GtkWidget *button;
+  GtkWidget *label;
+  GtkWidget *entry;
+  GtkWidget *hbox;
+  GtkWidget *table;
+
+  hl=(typHLOG *)gdata;
+  
+  if(flagChildDialog){
+    return;
+  }
+  else{
+    flagChildDialog=TRUE;
+  }
+
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Folder Setup",
+				       GTK_WINDOW(hl->w_top),
+				       GTK_DIALOG_MODAL,
+#ifdef USE_GTK3
+				       "_OK",GTK_RESPONSE_OK,
+#else
+				       GTK_STOCK_OK,GTK_RESPONSE_OK,
+#endif
+				       NULL);
+
+  gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK); 
+  gtk_widget_grab_focus(gtk_dialog_get_widget_for_response(GTK_DIALOG(dialog),
+							   GTK_RESPONSE_OK));
+
+  gtk_container_set_border_width(GTK_CONTAINER(dialog),5);
+  gtk_window_set_modal(GTK_WINDOW(dialog),TRUE);
+  
+
+  table = gtkut_table_new (2, 3, FALSE, 2, 2, 2);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     table,FALSE, FALSE, 0);
+  
+  label=gtk_label_new("Raw data directory : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtk_label_new("Work directory : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtk_label_new("IRAF uparm directory : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 2, 3,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtk_label_new("Shared data directory : ");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 0, 1, 3, 4,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  button = gtk_file_chooser_button_new ("Select Raw data directory",
+                                        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+  gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (button),
+                                       hl->ddir);
+  gtkut_table_attach(table, button, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  g_signal_connect (button,
+		    "file-set",
+		    G_CALLBACK(cc_get_dir),
+		    (gpointer)&hl->ddir);
+
+  button = gtk_file_chooser_button_new ("Select Work directory",
+                                        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+  gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (button),
+                                       hl->wdir);
+  gtkut_table_attach(table, button, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  g_signal_connect (button,
+		    "file-set",
+		    G_CALLBACK(cc_get_dir),
+		    (gpointer)&hl->wdir);
+
+  button = gtk_file_chooser_button_new ("Select IRAF uparm directory",
+                                        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+  gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (button),
+                                       hl->udir);
+  gtkut_table_attach(table, button, 1, 2, 2, 3,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  g_signal_connect (button,
+		    "file-set",
+		    G_CALLBACK(cc_get_dir),
+		    (gpointer)&hl->udir);
+
+  button = gtk_file_chooser_button_new ("Select Shared data directory",
+                                        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+  gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (button),
+                                       hl->sdir);
+  gtkut_table_attach(table, button, 1, 2, 3, 4,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  g_signal_connect (button,
+		    "file-set",
+		    G_CALLBACK(cc_get_dir),
+		    (gpointer)&hl->sdir);
+
+  gtk_widget_show_all(dialog);
+  gtk_dialog_run(GTK_DIALOG(dialog));
+
+  if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
+  flagChildDialog=FALSE;
+}
+
+
 gpointer thread_scan_command(gpointer gdata){
   typHLOG *hl=(typHLOG *)gdata;
 
+  //printf("Child : start printdir\n");
   printdir(hl);
 
   if(hl->scloop) g_main_loop_quit(hl->scloop);
+  while(my_main_iteration(FALSE));
+  //printf("Child : quitted main loop\n");
 
   return(NULL);
 }
@@ -1441,14 +1583,17 @@ gboolean start_scan_command(gpointer gdata){
 
   if(hl->scloop) return(FALSE);
 
+  //printf("Parent : Start scanning\n");
   gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			 "Scanning...");
+  while(my_main_iteration(FALSE));
   
   hl->scloop=g_main_loop_new(NULL, FALSE);
   hl->scthread=g_thread_new("hdslog_scan",
 			    thread_scan_command, (gpointer)hl);
   g_main_loop_run(hl->scloop);
   g_thread_join(hl->scthread);
+  //printf("Parent : Thread end\n");
   g_main_loop_unref(hl->scloop);
   hl->scloop=NULL;
 
@@ -1457,6 +1602,7 @@ gboolean start_scan_command(gpointer gdata){
 
   gtk_label_set_markup(GTK_LABEL(hl->w_status), 
 			 " ");
+  while(my_main_iteration(FALSE));
   
   if((hl->scr_flag) && (hl->num >0)){
     frame_tree_select_last(hl);
@@ -1769,6 +1915,20 @@ GtkWidget *make_menu(typHLOG *hl){
   gtk_container_add (GTK_CONTAINER (menu), popup_button);
   g_signal_connect (popup_button, "activate", 
 		    G_CALLBACK(do_iraf), (gpointer)hl);
+
+  //IRAF/folder
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("folder", GTK_ICON_SIZE_MENU);
+  popup_button =gtkut_image_menu_item_new_with_label (image, "Folder Setups");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_DIRECTORY, GTK_ICON_SIZE_MENU);
+  popup_button =gtk_image_menu_item_new_with_label ("Folder Setups");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+  gtk_widget_show (popup_button);
+  gtk_container_add (GTK_CONTAINER (menu), popup_button);
+  g_signal_connect (popup_button, "activate", 
+		    G_CALLBACK(do_dir), (gpointer)hl);
 
   //// Info
 #ifdef USE_GTK3
@@ -2525,7 +2685,7 @@ int main(int argc, char* argv[]){
   hl->flattmp2=g_strdup_printf(FLAT_TMP2,hl->uname);
   hl->wdir=get_work_dir_sumda(hl);
   hl->sdir=g_strdup_printf(SHARE_DIR);
-  hl->ddir=get_data_dir_sumda(hl);
+  hl->ddir=g_strdup(hl->data_dir);
   hl->udir=get_uparm_dir_sumda(hl);
   hl->spass=NULL;
   hl->iraf_hdsql_r=0;
