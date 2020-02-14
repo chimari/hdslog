@@ -33,6 +33,9 @@ void make_frame_tree(typHLOG *hl){
   
   gtk_container_add (GTK_CONTAINER (hl->scrwin), hl->frame_tree);
 
+  g_signal_connect (hl->frame_tree, "cursor-changed",
+		    G_CALLBACK (focus_frame_tree_item), (gpointer)hl);
+
   gtk_widget_show_all(hl->frame_tree);
 }
 
@@ -686,25 +689,32 @@ void frame_tree_update_note(typHLOG *hl,
 		      -1);
 }
 
+void frame_tree_get_selected (GtkTreeModel *model, GtkTreePath *path, 
+		    GtkTreeIter *iter, gpointer gdata)
+{
+  typHLOG *hl=(typHLOG *)gdata;
+  gint i;
+    
+  gtk_tree_model_get (model, iter, COLUMN_FRAME_NUMBER, &i, -1);
+  hl->frame_tree_i=i;
+}
+
 static void
 focus_frame_tree_item (GtkWidget *widget, gpointer data)
 {
-  GtkTreeIter iter;
   typHLOG *hl = (typHLOG *)data;
   GtkTreeModel *model = gtk_tree_view_get_model (GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
-  gint i_frm;
+  gint i_rows;
 
-  if (gtk_tree_selection_get_selected (selection, NULL, &iter)){
-    GtkTreePath *path;
-    
-    path = gtk_tree_model_get_path (model, &iter);
-    gtk_tree_model_get (model, &iter, COLUMN_FRAME_NUMBER, &i_frm, -1);
-    gtk_tree_path_free (path);
+  i_rows=gtk_tree_selection_count_selected_rows (selection);
 
-    hl->frame_tree_i=i_frm;
+  if(i_rows==1){
+    gtk_tree_selection_selected_foreach (selection, frame_tree_get_selected, (gpointer)hl);
   }
- 
+  else{
+    hl->frame_tree_i=0;
+  }
 }
 
 

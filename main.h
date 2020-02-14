@@ -156,6 +156,15 @@ enum{ FILE_HDSA, FILE_hds} FileHead;
 // Color
 enum{ COLOR_R, COLOR_B} ChipColor;
 
+// Scroll
+enum{SCR_AUTO, SCR_SMART, SCR_NONE, NUM_SCR}  ScrMode;
+static gchar *scr_name[]={
+  "Auto Scroll",
+  "Smart Scroll",
+  "No Scroll",
+  NULL
+};
+
 // IRAF
 #define NUM_SET 5
 
@@ -398,8 +407,8 @@ struct _typHLOG{
   gint lock_fp;
   gboolean lock_flag;
 
-  gboolean scr_flag;
-  GtkWidget *scr_check;
+  gint scr_flag;
+  GtkWidget *scr_combo;
 
   guint file_head;
   gboolean upd_flag;

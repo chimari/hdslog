@@ -1537,12 +1537,18 @@ void ql_obj_red(GtkWidget *w, gpointer gdata){
   gchar *cmdline;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
+  gint tmp_scr=hl->scr_flag;
+
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_R;
 
   gtk_tree_selection_selected_foreach (selection, ql_obj_foreach, (gpointer)hl);
+
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 void ql_obj_blue(GtkWidget *w, gpointer gdata){
@@ -1551,12 +1557,18 @@ void ql_obj_blue(GtkWidget *w, gpointer gdata){
   gchar *cmdline;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
+  gint tmp_scr=hl->scr_flag;
+
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_B;
 
   gtk_tree_selection_selected_foreach (selection, ql_obj_foreach, (gpointer)hl);
+
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 
@@ -1845,9 +1857,11 @@ void ql_ap_red(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_R;
 
@@ -1872,6 +1886,8 @@ void ql_ap_red(GtkWidget *w, gpointer gdata){
 		  NULL);
   }
 
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 
@@ -1882,9 +1898,11 @@ void ql_ap_blue(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_B;
 
@@ -1909,6 +1927,8 @@ void ql_ap_blue(GtkWidget *w, gpointer gdata){
 		  NULL);
   }
 
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 ///////////////// Flat ///////////////////
@@ -2380,9 +2400,11 @@ void ql_flat_red(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_R;
 
@@ -2393,6 +2415,9 @@ void ql_flat_red(GtkWidget *w, gpointer gdata){
   gtk_tree_selection_selected_foreach (selection, ql_flat_foreach, (gpointer)hl);
 
   if(flat_ow_check!=FLAT_OW_ABORT) make_flat(hl);
+
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 void ql_flat_blue(GtkWidget *w, gpointer gdata){
@@ -2401,9 +2426,11 @@ void ql_flat_blue(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_B;
 
@@ -2414,6 +2441,9 @@ void ql_flat_blue(GtkWidget *w, gpointer gdata){
   gtk_tree_selection_selected_foreach (selection, ql_flat_foreach, (gpointer)hl);
 
   if(flat_ow_check!=FLAT_OW_ABORT) make_flat(hl);
+
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 
@@ -2763,9 +2793,11 @@ void ql_thar_red(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_R;
 
@@ -2790,6 +2822,8 @@ void ql_thar_red(GtkWidget *w, gpointer gdata){
 		  NULL);
   }
 
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 
@@ -2800,9 +2834,11 @@ void ql_thar_blue(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_B;
 
@@ -2827,6 +2863,8 @@ void ql_thar_blue(GtkWidget *w, gpointer gdata){
 		  NULL);
   }
 
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 ////////////// Find ///////////////////
@@ -3773,9 +3811,11 @@ void ql_find_red(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_R;
 
@@ -3800,6 +3840,8 @@ void ql_find_red(GtkWidget *w, gpointer gdata){
 		  NULL);
   }
 
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 
 void ql_find_blue(GtkWidget *w, gpointer gdata){
@@ -3809,9 +3851,11 @@ void ql_find_blue(GtkWidget *w, gpointer gdata){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
   gint i_rows;
+  gint tmp_scr=hl->scr_flag;
 
   if(hl->file_head!=FILE_HDSA) return;
-  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),FALSE);
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   SCR_NONE);
 
   hl->iraf_col=COLOR_B;
 
@@ -3836,5 +3880,7 @@ void ql_find_blue(GtkWidget *w, gpointer gdata){
 		  NULL);
   }
 
+  gtk_combo_box_set_active(GTK_COMBO_BOX(hl->scr_combo),
+			   tmp_scr);
 }
 

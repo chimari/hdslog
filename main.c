@@ -665,15 +665,36 @@ void make_top_table(typHLOG *hl){
 		    G_CALLBACK (cc_get_adj),
 		    &hl->idnum0);
 
-  hl->scr_check = gtk_check_button_new_with_label("Auto Scroll");
-  gtk_box_pack_start(GTK_BOX(hbox),hl->scr_check,FALSE,FALSE,0);
-  if(hl->scr_flag){
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->scr_check),TRUE);
+  {
+    GtkListStore *store;
+    GtkTreeIter iter, iter_set;	  
+    GtkCellRenderer *renderer;
+    gint i;
+    gchar *tmp;
+
+    store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+
+    for(i=0;i<NUM_SCR;i++){
+      gtk_list_store_append(store, &iter);
+      gtk_list_store_set(store, &iter, 
+			 0, scr_name[i],
+			 1, i, -1);
+      if(hl->scr_flag==i) iter_set=iter;
+    }
+    
+    hl->scr_combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
+    gtk_box_pack_start(GTK_BOX(hbox),hl->scr_combo,FALSE,FALSE,0);
+    g_object_unref(store);
+    
+    renderer = gtk_cell_renderer_text_new();
+    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(hl->scr_combo),renderer, TRUE);
+    gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT(hl->scr_combo), renderer, "text",0,NULL);
+    
+    gtk_combo_box_set_active_iter(GTK_COMBO_BOX(hl->scr_combo),&iter_set);
+    gtk_widget_show(hl->scr_combo);
+    g_signal_connect (hl->scr_combo,"changed",G_CALLBACK(cc_get_combo_box),
+		       &hl->scr_flag);
   }
-  g_signal_connect (hl->scr_check, "toggled",
-		    G_CALLBACK(cc_get_toggle),
-		    &hl->scr_flag);
-  
 
   hbox = gtkut_hbox_new(FALSE,2);
   gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
@@ -1794,8 +1815,18 @@ gboolean start_scan_command(gpointer gdata){
 			 " ");
   while(my_main_iteration(FALSE));
   
-  if((hl->scr_flag) && (hl->num >0)){
-    frame_tree_select_last(hl);
+  if(hl->num >0){
+    switch(hl->scr_flag){
+    case SCR_AUTO:
+      frame_tree_select_last(hl);
+      break;
+
+    case SCR_SMART:
+      if(hl->frame_tree_i > hl->num-3){
+	frame_tree_select_last(hl);
+      }
+      break;
+    }
   }
 
   hl->scanning_timer=-1;
@@ -2859,7 +2890,7 @@ int main(int argc, char* argv[]){
   hl->buf_month=hl->fr_month;
   hl->buf_day=hl->fr_day;
 
-  hl->scr_flag=TRUE;
+  hl->scr_flag=SCR_SMART;
   hl->ech_tmpfl=FALSE;
   hl->ech_flag=FALSE;
   hl->i2_tmpfl=FALSE;
@@ -2897,10 +2928,10 @@ int main(int argc, char* argv[]){
 
   // Host
   gethostname(hostname, sizeof(hostname));
-  if(strcmp(hostname,"sumda")==0){
+  if(strncmp(hostname,"sumda",strlen("sumda"))==0){
     hl->upd_flag=TRUE;
   }
-  else if(strcmp(hostname,"hdsobcpl")==0){
+  else if(strncmp(hostname,"hdsobcpl",strlen("hdsobcpl"))==0){
     hl->upd_flag=TRUE;
   }
   else{
