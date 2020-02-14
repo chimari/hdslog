@@ -37,6 +37,8 @@ gint printdir();
 void gui_init();
 void show_version();
 
+gboolean check_scan ();
+
 // Ya is temporary (using Yb setting)
 const SetupEntry setups[] = {
   {"Ub",  "BLUE",  17100}, 
@@ -56,6 +58,27 @@ const SetupEntry setups[] = {
   {"NIRa","RED",   25200}, 
   {"Ha",  "MIRROR",0}
 };
+
+void get_hst_day(gint *year, gint *mon, gint *mday){
+  struct tm t, *lt;
+  time_t timer;
+   
+  t.tm_year=*year-1900;
+  t.tm_mon=*mon-1;
+  t.tm_mday=*mday;
+  t.tm_hour=0;
+  t.tm_min=0;
+  t.tm_sec=0;
+  
+  timer=mktime(&t);
+  timer-=20*60*60;
+  
+  lt=gmtime(&timer);
+  
+  *year=lt->tm_year+1900;
+  *mon =lt->tm_mon+1;
+  *mday=lt->tm_mday;
+}
 
 
 
@@ -345,6 +368,10 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
   make_frame_tree(hl);
   
   gtk_widget_set_sensitive(hl->b_refresh,TRUE);
+
+  if(!hl->upd_flag){
+    start_scan_command((gpointer)hl);
+  }
 }
 
 gboolean create_lock (typHLOG *hl){
@@ -653,7 +680,7 @@ void make_top_table(typHLOG *hl){
   gtkut_table_attach(hl->top_table, hbox, 0, 1, 1, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
 
-  label = gtk_label_new ("Date");
+  label = gtk_label_new ("Date (HST)");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
 
   hl->fr_e = gtk_entry_new();
@@ -674,7 +701,12 @@ void make_top_table(typHLOG *hl){
   gtk_widget_set_tooltip_text(button,"Doublue-Click on calendar to select a new date");
 #endif
 
-  set_fr_e_date(hl);
+  if(hl->upd_flag){ 
+    set_fr_e_date(hl);
+  }
+  else{
+    gtk_widget_set_sensitive(button,FALSE);
+  }
 
   label = gtk_label_new ("  ");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
@@ -776,7 +808,7 @@ void make_top_table(typHLOG *hl){
 
 
   hl->w_status = gtkut_label_new ("Starting...");
-  //while(my_main_iteration(FALSE));
+  while(my_main_iteration(FALSE));
   gtk_box_pack_start(GTK_BOX(hbox),hl->w_status,TRUE,TRUE,0);
 
 
@@ -860,6 +892,7 @@ int printfits(typHLOG *hl, char *inf){
   char obj_name[256];
   char observer[32];
   char prop[32];
+  char caldate[32];
   char frame_id[32];
   char hst_str[32];
   char hst[6];
@@ -880,6 +913,9 @@ int printfits(typHLOG *hl, char *inf){
   glong idnum_tmp;
   gboolean prop_ok;
   gchar *tmp;
+  glong ltmp;
+  gint t_year, t_mon, t_mday;
+  
 
 
   fits_open_file(&fptr, inf, READONLY, &status);
@@ -940,6 +976,22 @@ int printfits(typHLOG *hl, char *inf){
 
 	fits_read_key_str(fptr, "PROP-ID", prop, 0, &status);
 	hl->prop=g_strdup(prop);
+
+	if(!hl->upd_flag){
+	  fits_read_key_str(fptr, "DATE-OBS", caldate, 0, &status);
+	  t_year=atoi(strtok(caldate,"-"));
+	  t_mon=atoi(strtok(NULL,"-"));
+	  t_mday=atoi(strtok(NULL,"\0"));
+
+	  get_hst_day(&t_year, &t_mon, &t_mday);
+	  hl->fr_year=t_year;
+	  hl->fr_month=t_mon;
+	  hl->fr_day=t_mday;
+	  hl->buf_year=hl->fr_year;
+	  hl->buf_month=hl->fr_month;
+	  hl->buf_day=hl->fr_day;
+	  set_fr_e_date(hl);
+	}
       }
 
       
@@ -1170,12 +1222,13 @@ void ext_play(gchar *exe_command)
 {
   static pid_t pid;
   gchar *cmdline;
+  gint ret;
   
   waitpid(pid,0,WNOHANG);
   if(strcmp(exe_command,"\0")!=0){
     cmdline=g_strdup(exe_command);
     if( (pid = fork()) == 0 ){
-      system(cmdline);
+      ret=system(cmdline);
       _exit(-1);
       signal(SIGCHLD,ChildTerm);
     }
@@ -1707,12 +1760,10 @@ void do_remote (GtkWidget *widget, gpointer gdata)
 gpointer thread_scan_command(gpointer gdata){
   typHLOG *hl=(typHLOG *)gdata;
 
-  //printf("Child : start printdir\n");
   printdir(hl);
 
   if(hl->scloop) g_main_loop_quit(hl->scloop);
   while(my_main_iteration(FALSE));
-  //printf("Child : quitted main loop\n");
 
   return(NULL);
 }
@@ -1761,9 +1812,11 @@ gboolean check_scan (gpointer gdata){
     hl->scanning_flag=TRUE;
   }
   else if (hl->scanning_timer<0){  // 2nd time
-    hl->scanning_timer=g_timeout_add(READ_INTERVAL, 
-				     (GSourceFunc)start_scan_command,
-				     (gpointer)hl);
+    if(hl->upd_flag){
+      hl->scanning_timer=g_timeout_add(READ_INTERVAL, 
+				       (GSourceFunc)start_scan_command,
+				       (gpointer)hl);
+    }
   }
 
   return(TRUE);
@@ -1891,28 +1944,36 @@ gint printdir(typHLOG *hl){
       
     if(hl->file_head==FILE_HDSA){
       if(!strncmp(entry->d_name,"HDSA",4)){
-	if( (statbuf.st_ctime>=hl->seek_time)
-	    && (statbuf.st_ctime < hl->to_time)){
-	  if(statbuf.st_ctime-hl->seek_time<5) sleep(5);
+	if(hl->upd_flag){
+	  if( (statbuf.st_ctime>=hl->seek_time)
+	      && (statbuf.st_ctime < hl->to_time)){
+	    if(statbuf.st_ctime-hl->seek_time<5) sleep(5);
 #ifdef DEBUG
-//	  printf("0: %d %d %d %s",hl->fr_time,statbuf.st_ctime,hl->to_time,
-//	   	 asctime(localtime(&hl->fr_time)));
-	  printf("1: %s %s",entry->d_name,
-	   	 asctime(localtime(&hl->fr_time)));
+	    printf("1: %s %s",entry->d_name,
+		   asctime(localtime(&hl->fr_time)));
 #endif
+	    newflag+=printfits(hl,entry->d_name);
+	  }
+	}
+	else{
 	  newflag+=printfits(hl,entry->d_name);
 	}
       }
     }
     else if(hl->file_head==FILE_hds){
       if(!strncmp(entry->d_name,"hds20",5)){
-	if( (statbuf.st_ctime>=hl->seek_time)
-	    && (statbuf.st_ctime < hl->to_time)){
-	  if(statbuf.st_ctime-hl->seek_time<5) sleep(5);
+	if(hl->upd_flag){
+	  if( (statbuf.st_ctime>=hl->seek_time)
+	      && (statbuf.st_ctime < hl->to_time)){
+	    if(statbuf.st_ctime-hl->seek_time<5) sleep(5);
 #ifdef DEBUG
-	  printf("1: %s %s",entry->d_name,
-	   	 asctime(localtime(&hl->fr_time)));
+	    printf("1: %s %s",entry->d_name,
+		   asctime(localtime(&hl->fr_time)));
 #endif
+	    newflag+=printfits(hl,entry->d_name);
+	  }
+	}
+	else{
 	  newflag+=printfits(hl,entry->d_name);
 	}
       }
@@ -2732,6 +2793,7 @@ int main(int argc, char* argv[]){
   gint i;
   gchar *filename;
   GdkPixbuf *icon;
+  gchar hostname[128];
 
   if(argc!=2){
     fprintf(stderr, "[Usage] : %% hdslog data-dir\n");
@@ -2755,7 +2817,12 @@ int main(int argc, char* argv[]){
 
   hl=g_malloc0(sizeof(typHLOG));
 
-  hl->data_dir=g_strdup(argv[1]);
+  if(argv[1][strlen(argv[1])-1]=='/'){
+    hl->data_dir=g_strndup(argv[1],strlen(argv[1])-1);
+  }
+  else{
+    hl->data_dir=g_strdup(argv[1]);
+  }
   hl->num=0;
   hl->idnum0=0;
   hl->prop=NULL;
@@ -2771,11 +2838,9 @@ int main(int argc, char* argv[]){
 
   hl->fr_year=tmpt->tm_year+1900;
   hl->fr_month=tmpt->tm_mon+1;
+  hl->fr_day=tmpt->tm_mday;
   if(tmpt->tm_hour<9){
-    hl->fr_day=tmpt->tm_mday-1;
-  }
-  else{
-    hl->fr_day=tmpt->tm_mday;
+    get_hst_day(&hl->fr_year, &hl->fr_month, &hl->fr_day);
   }
 
   tmpt2.tm_year=hl->fr_year-1900;
@@ -2829,6 +2894,18 @@ int main(int argc, char* argv[]){
   hl->echelle0=DEF_ECHELLE0;
   hl->camz_date=NULL;
   flag_make_frame_tree=FALSE;
+
+  // Host
+  gethostname(hostname, sizeof(hostname));
+  if(strcmp(hostname,"sumda")==0){
+    hl->upd_flag=TRUE;
+  }
+  else if(strcmp(hostname,"hdsobcpl")==0){
+    hl->upd_flag=TRUE;
+  }
+  else{
+    hl->upd_flag=FALSE;
+  }
 
   // IRAF
   hl->uname=getenv("USER");
@@ -2892,10 +2969,15 @@ int main(int argc, char* argv[]){
   gui_init(hl);
 
   hl->scanning_flag=FALSE;
-  hl->timer=g_timeout_add(CHECK_INTERVAL, 
-			  (GSourceFunc)check_scan, 
-			  (gpointer)hl);
-
+  if(hl->upd_flag){
+    hl->timer=g_timeout_add(CHECK_INTERVAL, 
+			    (GSourceFunc)check_scan, 
+			    (gpointer)hl);
+  }
+  else{
+    do_dir(NULL,(gpointer)hl);
+    start_scan_command((gpointer)hl);
+  }
   gtk_main();
 }
 

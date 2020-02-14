@@ -592,7 +592,7 @@ frame_tree_create_items_model (typHLOG *hl)
     gtk_list_store_append (model, &iter);
     frame_tree_update_item(hl, GTK_TREE_MODEL(model), iter, i_frm);
   }
-  
+ 
   return GTK_TREE_MODEL (model);
 }
 

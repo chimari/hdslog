@@ -134,20 +134,25 @@ void get_flat_scnm(typHLOG *hl){
     c=hl->flat_blue[hl->iraf_hdsql_b];
   }
 
-  if(g_strstr_len(c,-1,".sc.nm")){
-    ret=FLAT_EX_SCNM;
-  }
-  else if(g_strstr_len(c,-1,".sc.fl")){
-    ret=FLAT_EX_SCFL;
-  }
-  else if(g_strstr_len(c,-1,".sc")){
-    ret=FLAT_EX_SC;
-  }
-  else if(c){
-    ret=FLAT_EX_1;
+  if(!c){
+    ret=FLAT_EX_NO;
   }
   else{
-    ret=FLAT_EX_NO;
+    if(g_strstr_len(c,-1,".sc.nm")){
+      ret=FLAT_EX_SCNM;
+    }
+    else if(g_strstr_len(c,-1,".sc.fl")){
+      ret=FLAT_EX_SCFL;
+    }
+    else if(g_strstr_len(c,-1,".sc")){
+      ret=FLAT_EX_SC;
+    }
+    else if(c){
+    ret=FLAT_EX_1;
+    }
+    else{
+      ret=FLAT_EX_NO;
+    }
   }
 
   if(hl->iraf_col==COLOR_R){
@@ -563,6 +568,22 @@ void edit_uparm(typHLOG *hl, gchar *key, gchar *type, gchar *data){
 		     hdsql_red[hl->iraf_hdsql_r] : hdsql_blue[hl->iraf_hdsql_b], 
 		     ".par",
 		     NULL);
+  if(access(infile, F_OK)!=0){
+    g_free(infile);
+
+    infile=g_strconcat(hl->udir,
+		       G_DIR_SEPARATOR_S,
+		       "hds",
+		       (hl->iraf_col==COLOR_R) ? 
+		       hdsql_red[hl->iraf_hdsql_r] : hdsql_blue[hl->iraf_hdsql_b], 
+		       ".par",
+		       NULL);
+    if(access(infile, F_OK)!=0){
+      fprintf(stderr, "Cannot access to *hdsql.par in uparm dir. Skipped...\n");
+      g_free(infile);
+      return;
+    }
+  }
   
   if((fp_r=fopen(infile, "r"))!=NULL){
     if((fp_w=fopen(hl->uparmtmp, "wb"))!=NULL){
@@ -1405,7 +1426,8 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
       mask=g_strdup_printf(MASK_FILE,
 			   hl->sdir,
 			   G_DIR_SEPARATOR_S,
-			   hl->frame[i_sel].bin1,hl->frame[i_sel].bin2,
+			   hl->frame[i_sel].bin1,
+			   hl->frame[i_sel].bin2,
 			   (hl->iraf_col==COLOR_R) ? "R" : "B");
       edit_uparm(hl,"mb_refer","s",mask);
 
@@ -1575,7 +1597,8 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
       mask=g_strdup_printf(MASK_FILE,
 			   hl->sdir,
 			   G_DIR_SEPARATOR_S,
-			   hl->frame[i_sel].bin1,hl->frame[i_sel].bin2,
+			   hl->frame[i_sel].bin1,
+			   hl->frame[i_sel].bin2,
 			   (hl->iraf_col==COLOR_R) ? "R" : "B");
       edit_uparm(hl,"mb_refer","s",mask);
       

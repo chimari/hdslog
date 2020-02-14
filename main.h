@@ -5,6 +5,8 @@
 #include<gtk/gtk.h>
 #include <gio/gio.h>
 
+#include <unistd.h>
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -68,6 +70,10 @@
 #define FRAME_QL_BLUE_LABEL "<span color=\"#0000FF\"><b>Blue</b></span> <span size=\"smaller\">(= even frame ID)</span>"
 
 enum{CAL_AP, CAL_FLAT, CAL_THAR, NUM_CAL};
+
+#ifndef G_DIR_SEPARATOR_S
+#define G_DIR_SEPARATOR_S "/"
+#endif
 
 
 #ifdef SIGRTMIN
@@ -396,6 +402,7 @@ struct _typHLOG{
   GtkWidget *scr_check;
 
   guint file_head;
+  gboolean upd_flag;
   
   gchar *observer;
   gchar *prop;
