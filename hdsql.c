@@ -2,11 +2,6 @@
 
 #define BUFFSIZE 256
 
-enum{FLAT_OW_NONE, FLAT_OW_SKIP, FLAT_OW_GO,  FLAT_OW_ABORT};
-enum{OPEN_AP, OPEN_FLAT, OPEN_THAR, 
-     REF1_AP, REF2_AP, 
-     REF1_THAR, REF2_THAR, NUM_OPEN};
-
 gint flat_ow_check;
 
 
@@ -402,14 +397,52 @@ void set_cal_frame_blue(typHLOG *hl){
 }
 
 gchar *get_work_dir_sumda(typHLOG *hl){
-  gchar *ret;
+  gchar *ret, *pdir;
   
-  ret=g_strconcat(G_DIR_SEPARATOR_S,
-		  "work",
-		  G_DIR_SEPARATOR_S,
-		  hl->uname,
-		  NULL);
+  
+  if(hl->upd_flag){
+    ret=g_strconcat(G_DIR_SEPARATOR_S,
+		    "work",
+		    G_DIR_SEPARATOR_S,
+		    hl->uname,
+		    NULL);
+  }
+  else{
+    pdir=g_path_get_dirname(hl->ddir);
+    ret=g_strconcat(pdir,
+		    G_DIR_SEPARATOR_S,
+		    "work",
+		    NULL);
+    g_free(pdir);
+    if(access(ret, F_OK)!=0){
+      g_free(ret);
+      ret=g_strdup(hl->ddir);
+    }
+  }
+  return(ret);
+}
 
+
+gchar *get_share_dir_sumda(typHLOG *hl){
+  gchar *ret, *pdir;
+  
+  
+  if(hl->upd_flag){
+    ret=g_strdup(SHARE_DIR);
+  }
+  else{
+    pdir=g_get_home_dir();
+    ret=g_strconcat(pdir,
+		    G_DIR_SEPARATOR_S,
+		    "share",
+		    G_DIR_SEPARATOR_S,
+		    "HDS",
+		    NULL);
+    if(access(ret, F_OK)!=0){
+      g_free(ret);
+      ret=g_strdup(pdir);
+    }
+  }
   return(ret);
 }
 
@@ -422,22 +455,18 @@ gchar *get_data_dir_sumda(typHLOG *hl){
 		  G_DIR_SEPARATOR_S,
 		  hl->uname,
 		  NULL);
-
   return(ret);
 }
 
 
 gchar *get_uparm_dir_sumda(typHLOG *hl){
-  gchar *ret;
+  gchar *ret, *pdir;
   
-  ret=g_strconcat(G_DIR_SEPARATOR_S,
-		  "home",
-		  G_DIR_SEPARATOR_S,
-		  hl->uname,
+  pdir=g_get_home_dir();
+  ret=g_strconcat(pdir,
 		  G_DIR_SEPARATOR_S,
 		  "uparm",
 		  NULL);
-
   return(ret);
 }
 
@@ -2973,6 +3002,11 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 			"database",
 			NULL);
     break;
+
+  case OPEN_LOG:
+    tmp=g_strdup("HDS Log Editor : Select Observation Log file");
+    break;
+
   }
 
   tgt_file=&fp_file;
@@ -3056,6 +3090,11 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 			(hl->iraf_col==COLOR_R) ? "R" : "B");
     my_file_chooser_add_filter(fdialog,"Wavelength Database File",
 			       tmp,NULL);
+    break;
+  case OPEN_LOG:
+    my_file_chooser_add_filter(fdialog,
+			       "Obs Log Text File", "*.eml", ".txt",
+			       NULL);
     break;
 
   default:
@@ -3272,6 +3311,20 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  g_free(fits_file);
 	}
 	break;
+
+      case OPEN_LOG:
+	{
+	  FILE *fp;
+
+	  if((fp=fopen(*tgt_file, "r"))!=NULL){
+	  
+	    ReadLog(hl, fp);
+
+	    fclose(fp);
+	  }
+	}
+	break;
+
       }
     }
     else{

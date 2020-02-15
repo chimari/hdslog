@@ -19,6 +19,7 @@ void set_ql_frame_label();
 void set_cal_frame_red();
 void set_cal_frame_blue();
 gchar *get_work_dir_sumda();
+gchar *get_share_dir_sumda();
 gchar *get_data_dir_sumda();
 gchar *get_uparm_dir_sumda();
 void edit_uparm();

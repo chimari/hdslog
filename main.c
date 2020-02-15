@@ -377,6 +377,8 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
 gboolean create_lock (typHLOG *hl){
   gchar lockfile[256];
 
+  if(!hl->upd_flag) return;
+
   sprintf(lockfile,"%s%shdslog-%04d%02d%02d-%s.lock",
 	  g_get_tmp_dir(),G_DIR_SEPARATOR_S, 
 	  hl->fr_year,hl->fr_month,hl->fr_day,hl->uname);
@@ -464,6 +466,8 @@ static void load_note (typHLOG *hl,gboolean force_fl)
   gchar *c_buf;
   gint i, i_buf;
   struct stat statbuf;
+
+  if(!hl->upd_flag) return;
 
   sprintf(filename,"%s%s%s%s.hdslog-%04d%02d%02d",
 	  g_get_home_dir(), G_DIR_SEPARATOR_S,
@@ -843,7 +847,6 @@ void update_frame_tree(typHLOG *hl){
   GtkTreeIter iter;
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
-  GtkTreePath *path;
 
 #ifdef DEBUG
   fprintf(stderr, "Start Load\n");
@@ -854,7 +857,7 @@ void update_frame_tree(typHLOG *hl){
   }
   else{
     // No change or Appended New frame
-    load_note(hl,FALSE);
+      load_note(hl,FALSE);
   }
 
 #ifdef DEBUG
@@ -1118,6 +1121,7 @@ void ScpCAL(GtkWidget *w, gpointer gdata){
   gtk_main_quit();
 }
 
+
 void WriteLog(typHLOG *hl, FILE *fp){
   gint i;
 
@@ -1200,6 +1204,54 @@ void WriteLog(typHLOG *hl, FILE *fp){
   fprintf(fp,"  delta Cross Scan Blue : %+d\n", hl->d_cross_b);
   fprintf(fp,"  Echelle zero angle : %+d\n", hl->echelle0);
   fprintf(fp,"  \n");
+}
+
+void ReadLog(typHLOG *hl,  FILE *fp){
+  gchar *buf, *c, *n, *fname=NULL;
+  gint i_frm=0, min_line;
+  
+  while(!feof(fp)){
+    if((buf=fgets_new(fp))!=NULL){
+      if(strlen(buf)>10){
+	c=buf+4+2;
+	if(strncmp(c,"HDSA",4)==0){
+	  if(i_frm==0){
+	    min_line=strlen(buf);
+	  }
+	  else if(strlen(buf)<min_line){
+	    min_line=strlen(buf);
+	  }
+	  i_frm++;
+	}
+      }
+    }
+  }
+
+  fseek(fp, 0L, SEEK_SET);
+  
+  while(!feof(fp)){
+    if((buf=fgets_new(fp))!=NULL){
+      if(strlen(buf)>10){
+	c=buf+4+2;
+	if(strncmp(c,"HDSA",4)==0){
+	  if(strlen(buf)>min_line){
+	    fname=g_strndup(buf+4+2,12);
+
+	    for(i_frm=0;i_frm<hl->num;i_frm++){
+	      if(strcmp(fname,hl->frame[i_frm].id)==0){
+		c=buf+min_line;
+		if(hl->frame[i_frm].note.txt) g_free(hl->frame[i_frm].note.txt);
+		hl->frame[i_frm].note.txt=g_strdup(c);
+		hl->frame[i_frm].note.auto_fl=TRUE;
+		break;
+	      }
+	    }
+	    g_free(fname);
+	  }
+	}
+      }
+    }
+  }
 }
 
 void SendMail(GtkWidget *w, gpointer gdata){
@@ -1411,6 +1463,193 @@ void do_mail (GtkWidget *widget, gpointer gdata)
   flagChildDialog=FALSE;
 }
 
+
+void do_read_log(GtkWidget *widget, gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+  GtkTreeIter iter;
+  GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
+  GtkTreePath *path;
+  gint i_frm;
+
+  hdslog_OpenFile(hl, OPEN_LOG);
+
+  update_frame_tree(hl);
+
+  path=gtk_tree_path_new_first();
+
+  for(i_frm=0;i_frm<hl->num;i_frm++){
+    gtk_tree_model_get_iter (model, &iter, path);
+    gtk_list_store_set (GTK_LIST_STORE(model), &iter,
+			COLUMN_FRAME_NOTE, hl->frame[i_frm].note.txt, -1);
+    gtk_tree_path_next(path);
+  }
+  gtk_tree_path_free(path);
+}
+
+
+void do_cp_cal(GtkWidget *widget, gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+  gchar *db_dir, *com;
+  gint i, ret;
+
+  if(access(hl->sdir, F_OK)==0){
+    db_dir=g_strconcat(hl->sdir,
+		       G_DIR_SEPARATOR_S,
+		       "database",
+		       NULL);
+    if(access(hl->sdir, F_OK)!=0){
+      com=g_strconcat("mkdir ",
+		      db_dir,
+		      NULL);
+      ret=system(com);
+      g_free(com);
+    }
+  }
+  else{
+    popup_message(hl->w_top, 
+#ifdef USE_GTK3
+		  "dialog-warning", 
+#else
+		  GTK_STOCK_DIALOG_WARNING,
+#endif
+		  -1,
+		  "<b>Error</b>: cannot access to HDS shared directory.",
+		  " ",
+		  hl->sdir,
+		  NULL);
+    return;
+  }
+
+  for(i=0;i<NUM_SET;i++){
+    // Ap Red
+    if(hl->flag_ap_red[i]){
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->ap_red[i],
+		      ".fits  ",
+		      hl->sdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->ap_red[i],
+		      ".fits  ",
+		      NULL);
+      ret=system(com);
+      g_free(com);
+
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      "database",
+		      G_DIR_SEPARATOR_S,
+		      "ap",
+		      hl->ap_red[i],
+		      " ",
+		      db_dir,
+		      G_DIR_SEPARATOR_S,
+		      "ap",
+		      hl->ap_red[i],
+		      NULL);
+      ret=system(com);
+      g_free(com);
+    }
+
+    // Ap Blue
+    if(hl->flag_ap_blue[i]){
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->ap_blue[i],
+		      ".fits  ",
+		      hl->sdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->ap_blue[i],
+		      ".fits  ",
+		      NULL);
+      ret=system(com);
+      g_free(com);
+
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      "database",
+		      G_DIR_SEPARATOR_S,
+		      "ap",
+		      hl->ap_blue[i],
+		      " ",
+		      db_dir,
+		      G_DIR_SEPARATOR_S,
+		      "ap",
+		      hl->ap_blue[i],
+		      NULL);
+      ret=system(com);
+      g_free(com);
+    }
+
+    // ThAr Red
+    if(hl->flag_thar_red[i]){
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->thar_red[i],
+		      ".fits  ",
+		      hl->sdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->thar_red[i],
+		      ".fits  ",
+		      NULL);
+      ret=system(com);
+      g_free(com);
+
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      "database",
+		      G_DIR_SEPARATOR_S,
+		      "ec",
+		      hl->thar_red[i],
+		      " ",
+		      db_dir,
+		      G_DIR_SEPARATOR_S,
+		      "ec",
+		      hl->thar_red[i],
+		      NULL);
+      ret=system(com);
+      g_free(com);
+    }
+
+    // ThAr Blue
+    if(hl->flag_thar_blue[i]){
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->thar_blue[i],
+		      ".fits  ",
+		      hl->sdir,
+		      G_DIR_SEPARATOR_S,
+		      hl->thar_blue[i],
+		      ".fits  ",
+		      NULL);
+      ret=system(com);
+      g_free(com);
+
+      com=g_strconcat("cp ",
+		      hl->wdir,
+		      G_DIR_SEPARATOR_S,
+		      "database",
+		      G_DIR_SEPARATOR_S,
+		      "ec",
+		      hl->thar_blue[i],
+		      " ",
+		      db_dir,
+		      G_DIR_SEPARATOR_S,
+		      "ec",
+		      hl->thar_blue[i],
+		      NULL);
+      ret=system(com);
+      g_free(com);
+    }
+  }
+}
 
 
 void do_scp (GtkWidget *widget, gpointer gdata)
@@ -2068,37 +2307,52 @@ GtkWidget *make_menu(typHLOG *hl){
   menu=gtk_menu_new();
   gtk_widget_show (menu);
   gtk_menu_item_set_submenu(GTK_MENU_ITEM(menu_item), menu);
-  
-  //File/Send Mail
+
+  if(hl->upd_flag){
+    //File/Send Mail
 #ifdef USE_GTK3
-  image=gtk_image_new_from_icon_name ("mail-send", GTK_ICON_SIZE_MENU);
-  popup_button =gtkut_image_menu_item_new_with_label (image, "Send Mail");
+    image=gtk_image_new_from_icon_name ("mail-send", GTK_ICON_SIZE_MENU);
+    popup_button =gtkut_image_menu_item_new_with_label (image, "Send Mail");
 #else
-  image=gtk_image_new_from_stock (GTK_STOCK_NETWORK, GTK_ICON_SIZE_MENU);
-  popup_button =gtk_image_menu_item_new_with_label ("Send Mail");
-  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+    image=gtk_image_new_from_stock (GTK_STOCK_NETWORK, GTK_ICON_SIZE_MENU);
+    popup_button =gtk_image_menu_item_new_with_label ("Send Mail");
+    gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
 #endif
-  gtk_widget_show (popup_button);
-  gtk_container_add (GTK_CONTAINER (menu), popup_button);
-  g_signal_connect (popup_button, "activate",G_CALLBACK(do_mail),(gpointer)hl);
-
-  bar =gtk_separator_menu_item_new();
-  gtk_widget_show (bar);
-  gtk_container_add (GTK_CONTAINER (menu), bar);
-
+    gtk_widget_show (popup_button);
+    gtk_container_add (GTK_CONTAINER (menu), popup_button);
+    g_signal_connect (popup_button, "activate",G_CALLBACK(do_mail),(gpointer)hl);
+    
+    bar =gtk_separator_menu_item_new();
+    gtk_widget_show (bar);
+    gtk_container_add (GTK_CONTAINER (menu), bar);
+    
   //File/Upload CAL
 #ifdef USE_GTK3
-  image=gtk_image_new_from_icon_name ("network-transmit", GTK_ICON_SIZE_MENU);
-  popup_button =gtkut_image_menu_item_new_with_label (image, "Upload CAL files");
+    image=gtk_image_new_from_icon_name ("network-transmit", GTK_ICON_SIZE_MENU);
+    popup_button =gtkut_image_menu_item_new_with_label (image, "Upload CAL files");
 #else
-  image=gtk_image_new_from_stock (GTK_STOCK_SAVE, GTK_ICON_SIZE_MENU);
-  popup_button =gtk_image_menu_item_new_with_label ("Upload CAL files");
-  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+    image=gtk_image_new_from_stock (GTK_STOCK_SAVE, GTK_ICON_SIZE_MENU);
+    popup_button =gtk_image_menu_item_new_with_label ("Upload CAL files");
+    gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
 #endif
-  gtk_widget_show (popup_button);
-  gtk_container_add (GTK_CONTAINER (menu), popup_button);
-  g_signal_connect (popup_button, "activate",G_CALLBACK(do_scp),(gpointer)hl);
-
+    gtk_widget_show (popup_button);
+    gtk_container_add (GTK_CONTAINER (menu), popup_button);
+    g_signal_connect (popup_button, "activate",G_CALLBACK(do_scp),(gpointer)hl);
+  }
+  else{
+  //File/Open Obs Log
+#ifdef USE_GTK3
+    image=gtk_image_new_from_icon_name ("document-open", GTK_ICON_SIZE_MENU);
+    popup_button =gtkut_image_menu_item_new_with_label (image, "Open Obs Log");
+#else
+    image=gtk_image_new_from_stock (GTK_STOCK_OPEN, GTK_ICON_SIZE_MENU);
+    popup_button =gtk_image_menu_item_new_with_label ("Open Obs Log");
+    gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+    gtk_widget_show (popup_button);
+    gtk_container_add (GTK_CONTAINER (menu), popup_button);
+    g_signal_connect (popup_button, "activate",G_CALLBACK(do_read_log),(gpointer)hl);
+  }
 
   bar =gtk_separator_menu_item_new();
   gtk_widget_show (bar);
@@ -2161,19 +2415,34 @@ GtkWidget *make_menu(typHLOG *hl){
   g_signal_connect (popup_button, "activate", 
 		    G_CALLBACK(do_dir), (gpointer)hl);
 
+  if(hl->upd_flag){
   //// IRAF/Upload
 #ifdef USE_GTK3
-  image=gtk_image_new_from_icon_name ("network-transmit", GTK_ICON_SIZE_MENU);
-  popup_button =gtkut_image_menu_item_new_with_label (image, "Upload reduced spectra");
+    image=gtk_image_new_from_icon_name ("network-transmit", GTK_ICON_SIZE_MENU);
+    popup_button =gtkut_image_menu_item_new_with_label (image, "Upload reduced spectra");
 #else
-  image=gtk_image_new_from_stock (GTK_STOCK_SAVE, GTK_ICON_SIZE_MENU);
-  popup_button =gtk_image_menu_item_new_with_label ("Upload reduced spectra");
-  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+    image=gtk_image_new_from_stock (GTK_STOCK_SAVE, GTK_ICON_SIZE_MENU);
+    popup_button =gtk_image_menu_item_new_with_label ("Upload reduced spectra");
+    gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
 #endif
-  gtk_widget_show (popup_button);
-  gtk_container_add (GTK_CONTAINER (menu), popup_button);
-  g_signal_connect (popup_button, "activate",G_CALLBACK(do_remote),(gpointer)hl);
-
+    gtk_widget_show (popup_button);
+    gtk_container_add (GTK_CONTAINER (menu), popup_button);
+    g_signal_connect (popup_button, "activate",G_CALLBACK(do_remote),(gpointer)hl);
+  }
+  else{
+  //File/Upload CAL
+#ifdef USE_GTK3
+    image=gtk_image_new_from_icon_name ("edit-copy", GTK_ICON_SIZE_MENU);
+    popup_button =gtkut_image_menu_item_new_with_label (image, "Copy CAL files to Share Dir.");
+#else
+    image=gtk_image_new_from_stock (GTK_STOCK_COPY, GTK_ICON_SIZE_MENU);
+    popup_button =gtk_image_menu_item_new_with_label ("Copy CAL files to Share Dir.");
+    gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+    gtk_widget_show (popup_button);
+    gtk_container_add (GTK_CONTAINER (menu), popup_button);
+    g_signal_connect (popup_button, "activate",G_CALLBACK(do_cp_cal),(gpointer)hl);
+  }
 
   //// Info
 #ifdef USE_GTK3
@@ -2944,9 +3213,9 @@ int main(int argc, char* argv[]){
   hl->uparmtmp=g_strdup_printf(UPARMTMP,hl->uname);
   hl->flattmp1=g_strdup_printf(FLAT_TMP1,hl->uname);
   hl->flattmp2=g_strdup_printf(FLAT_TMP2,hl->uname);
-  hl->wdir=get_work_dir_sumda(hl);
-  hl->sdir=g_strdup_printf(SHARE_DIR);
   hl->ddir=g_strdup(hl->data_dir);
+  hl->wdir=get_work_dir_sumda(hl);
+  hl->sdir=get_share_dir_sumda(hl);
   hl->udir=get_uparm_dir_sumda(hl);
   hl->spass=NULL;
   hl->iraf_hdsql_r=0;

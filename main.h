@@ -71,6 +71,12 @@
 
 enum{CAL_AP, CAL_FLAT, CAL_THAR, NUM_CAL};
 
+enum{FLAT_OW_NONE, FLAT_OW_SKIP, FLAT_OW_GO,  FLAT_OW_ABORT};
+
+enum{OPEN_AP, OPEN_FLAT, OPEN_THAR, 
+     REF1_AP, REF2_AP, 
+     REF1_THAR, REF2_THAR, OPEN_LOG, NUM_OPEN};
+
 #ifndef G_DIR_SEPARATOR_S
 #define G_DIR_SEPARATOR_S "/"
 #endif
@@ -554,6 +560,7 @@ gboolean Flag_tree_editing;
 
 gchar* to_utf8();
 gchar* to_locale();
+void ReadLog();
 
 void cc_get_entry ();
 void cc_get_combo_box ();
@@ -567,3 +574,4 @@ gchar* get_setname_short();
 gchar* get_setname_long();
 
 int scp_write_cal();
+void hdslog_OpenFile();

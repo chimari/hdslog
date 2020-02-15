@@ -1,4 +1,6 @@
-2020.02.13 ver.2.1.0  - Adopted to non-sumda/hdsobcpl environment.
+2020.02.14 ver.2.1.1  - Adjustment for non-sumda/hdsobcpl environments.
+
+2020.02.13 ver.2.1.0  - Adopted to non-sumda/hdsobcpl environments.
                         This mode can be used for local data reduction
 	                in each individual environment.
 	                  hl->upd_flag=FALSE;
