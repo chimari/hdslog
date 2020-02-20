@@ -4,6 +4,22 @@
 
 gint flat_ow_check;
 
+void check_db_dir(gchar *wdir){
+  gchar *db_dir, *com;
+  db_dir=g_strconcat(wdir,
+		     G_DIR_SEPARATOR_S,
+		     "database",
+		     NULL);
+  if(access(db_dir, F_OK)!=0){
+    com=g_strconcat("mkdir ",
+		    db_dir,
+		    NULL);
+    system(com);
+    g_free(com);
+  }
+  
+  g_free(db_dir);
+}
 
 void db_check(typHLOG *hl, gint cal){
   gboolean ret=FALSE;
@@ -336,11 +352,10 @@ void set_setname(typHLOG *hl, gint i_sel){
   g_free(setup);
 }
 
-void set_ql_frame_label(typHLOG *hl){
+void set_ql_frame_label(typHLOG *hl, GtkWidget *w, gboolean frame_flag){
   gchar *tmp;
 
   if(hl->iraf_col==COLOR_R){
-    gtkut_frame_set_label(hl->frame_ql_red, " ");
     if(hl->ap_red[hl->iraf_hdsql_r]){
       tmp=g_strconcat(FRAME_QL_RED_LABEL,
 		      "  :  <b>",
@@ -351,7 +366,6 @@ void set_ql_frame_label(typHLOG *hl){
     else{
       tmp=g_strdup(FRAME_QL_RED_LABEL);
     }
-    gtkut_frame_set_label(hl->frame_ql_red, tmp);
   }
   else{
     if(hl->ap_blue[hl->iraf_hdsql_b]){
@@ -364,7 +378,12 @@ void set_ql_frame_label(typHLOG *hl){
     else{
       tmp=g_strdup(FRAME_QL_BLUE_LABEL);
     }
-    gtkut_frame_set_label(hl->frame_ql_blue, tmp);
+  }
+  if(frame_flag){
+    gtkut_frame_set_label(w, tmp);
+  }
+  else{
+    gtk_label_set_markup(GTK_LABEL(w), tmp);
   }
 
   g_free(tmp);
@@ -431,8 +450,7 @@ gchar *get_share_dir_sumda(typHLOG *hl){
     ret=g_strdup(SHARE_DIR);
   }
   else{
-    pdir=g_get_home_dir();
-    ret=g_strconcat(pdir,
+    ret=g_strconcat(g_get_home_dir(),
 		    G_DIR_SEPARATOR_S,
 		    "share",
 		    G_DIR_SEPARATOR_S,
@@ -440,7 +458,6 @@ gchar *get_share_dir_sumda(typHLOG *hl){
 		    NULL);
     if(access(ret, F_OK)!=0){
       g_free(ret);
-      ret=g_strdup(pdir);
     }
   }
   return(ret);
@@ -460,13 +477,23 @@ gchar *get_data_dir_sumda(typHLOG *hl){
 
 
 gchar *get_uparm_dir_sumda(typHLOG *hl){
-  gchar *ret, *pdir;
+  gchar *ret;
   
-  pdir=g_get_home_dir();
-  ret=g_strconcat(pdir,
-		  G_DIR_SEPARATOR_S,
-		  "uparm",
-		  NULL);
+  if(hl->upd_flag){
+    ret=g_strconcat(G_DIR_SEPARATOR_S,
+		    "home",
+		    G_DIR_SEPARATOR_S,
+		    hl->uname,
+		    G_DIR_SEPARATOR_S,
+		    "uparm",
+		    NULL);
+  }
+  else{
+    ret=g_strconcat(g_get_home_dir(),
+		    G_DIR_SEPARATOR_S,
+		    "uparm",
+		    NULL);
+  }
   return(ret);
 }
 
@@ -860,7 +887,7 @@ gboolean popup_dialog(GtkWidget *parent, gchar* stock_id, ...){
 
   va_start(args, stock_id);
 
-  dialog = gtk_dialog_new_with_buttons("HDSLOG : Dialog",
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Dialog",
 				       GTK_WINDOW(parent),
 				       GTK_DIALOG_MODAL,
 #ifdef USE_GTK3
@@ -938,7 +965,7 @@ gboolean write_dialog(typHLOG *hl, gchar* stock_id, gchar* file_str){
   GtkWidget *vbox;
   gboolean ret=FALSE;
 
-  dialog = gtk_dialog_new_with_buttons("HDSLOG : Dialog",
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Dialog",
 				       GTK_WINDOW(hl->w_top),
 				       GTK_DIALOG_MODAL,
 #ifdef USE_GTK3
@@ -1041,7 +1068,7 @@ gboolean ow_check(typHLOG *hl, gchar* file_in){
     return(TRUE);
   }
 
-  dialog = gtk_dialog_new_with_buttons("HDSLOG : Dialog",
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Dialog",
 				       GTK_WINDOW(hl->w_top),
 				       GTK_DIALOG_MODAL,
 #ifdef USE_GTK3
@@ -1206,8 +1233,8 @@ void xdo_error(typHLOG *hl, gint winid){
 		  "No HDS_IRAF terminal has been found in your desktop.",
 		  " ",
 		  "Please start up it by",
-		  "      /home/hds01/share/bin/ana_start",
-		  "on a terminal of sumda.",
+		  "      <b>IRAF</b> - <b>Check/Restart xgterm</b>",
+		  "in the menu.",
 		  NULL);
   }
   else{
@@ -1360,6 +1387,9 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
   gint tkid;
   gboolean splot_flag=FALSE;
   gboolean ap_ret=FALSE, thar_ret=FALSE, flat_ret=FALSE, is_ret=FALSE;
+  gboolean sc_inte0, sc_resi0, sc_edit0, sc_fitt0;
+  gboolean ap_inte0, ap_resi0, ap_edit0, is_plot0;
+  gint ap_llim0, ap_ulim0, is_stx0, is_edx0, sp_line0;
 
   if(hl->iraf_col==COLOR_R){
     if(hl->flag_ap_red[hl->iraf_hdsql_r]){
@@ -1371,6 +1401,23 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     if(hl->ex_flat_red[hl->iraf_hdsql_r]>=FLAT_EX_1){
       flat_ret=TRUE;
     }
+
+    sc_inte0=hl->qp_r[hl->iraf_hdsql_r].sc_inte;
+    sc_resi0=hl->qp_r[hl->iraf_hdsql_r].sc_resi;
+    sc_edit0=hl->qp_r[hl->iraf_hdsql_r].sc_edit;
+    sc_fitt0=hl->qp_r[hl->iraf_hdsql_r].sc_fitt;
+
+    ap_inte0=hl->qp_r[hl->iraf_hdsql_r].ap_inte;
+    ap_resi0=hl->qp_r[hl->iraf_hdsql_r].ap_resi;
+    ap_edit0=hl->qp_r[hl->iraf_hdsql_r].ap_edit;
+    ap_llim0=hl->qp_r[hl->iraf_hdsql_r].ap_llim;
+    ap_ulim0=hl->qp_r[hl->iraf_hdsql_r].ap_ulim;
+
+    is_plot0=hl->qp_r[hl->iraf_hdsql_r].is_plot;
+    is_stx0 =hl->qp_r[hl->iraf_hdsql_r].is_stx;
+    is_edx0 =hl->qp_r[hl->iraf_hdsql_r].is_edx;
+
+    sp_line0=hl->qp_r[hl->iraf_hdsql_r].sp_line;
   }
   else{
     if(hl->flag_ap_blue[hl->iraf_hdsql_b]){
@@ -1382,6 +1429,23 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     if(hl->ex_flat_blue[hl->iraf_hdsql_b]>=FLAT_EX_1){
       flat_ret=TRUE;
     }
+
+    sc_inte0=hl->qp_b[hl->iraf_hdsql_b].sc_inte;
+    sc_resi0=hl->qp_b[hl->iraf_hdsql_b].sc_resi;
+    sc_edit0=hl->qp_b[hl->iraf_hdsql_b].sc_edit;
+    sc_fitt0=hl->qp_b[hl->iraf_hdsql_b].sc_fitt;
+
+    ap_inte0=hl->qp_b[hl->iraf_hdsql_b].ap_inte;
+    ap_resi0=hl->qp_b[hl->iraf_hdsql_b].ap_resi;
+    ap_edit0=hl->qp_b[hl->iraf_hdsql_b].ap_edit;
+    ap_llim0=hl->qp_b[hl->iraf_hdsql_b].ap_llim;
+    ap_ulim0=hl->qp_b[hl->iraf_hdsql_b].ap_ulim;
+
+    is_plot0=hl->qp_b[hl->iraf_hdsql_b].is_plot;
+    is_stx0 =hl->qp_b[hl->iraf_hdsql_b].is_stx;
+    is_edx0 =hl->qp_b[hl->iraf_hdsql_b].is_edx;
+
+    sp_line0=hl->qp_b[hl->iraf_hdsql_b].sp_line;
   }
 
   if(strncmp(hl->frame[i_sel].is, "NONE", strlen("NONE"))!=0){
@@ -1442,9 +1506,7 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
 
     if(splot_flag){
       tmp=g_strdup_printf("xdotool type --window %d \'splot %s %d\'", 
-			  winid, hl->file_wait, 
-			  (hl->iraf_col==COLOR_R) ? 
-			  hl->iraf_order_r : hl->iraf_order_b);
+			  winid, hl->file_wait, sp_line0);
       send_xdo(hl, tmp);
       g_free(tmp);
     }
@@ -1460,7 +1522,7 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
 			   (hl->iraf_col==COLOR_R) ? "R" : "B");
       edit_uparm(hl,"mb_refer","s",mask);
 
-      tmp1=g_strdup_printf("xdotool type --window %d \'%s %d indir=%s overw+ oversca+ biassub- maskbad+ mb_refe=%s linear+ cosmicr+ scatter+ sc_refe=%s sc_rece- xtalk-", 
+      tmp1=g_strdup_printf("xdotool type --window %d \'%s %d indir=%s overw+ oversca+ biassub- maskbad+ mb_refe=%s linear+ cosmicr+ scatter+ sc_refe=%s sc_inte%s sc_rece- sc_resi%s sc_edit%s sc_fitt%s xtalk-", 
 			   winid, 
 			   (hl->iraf_col==COLOR_R) ? 
 			   hdsql_red[hl->iraf_hdsql_r] : hdsql_blue[hl->iraf_hdsql_b], 
@@ -1468,27 +1530,41 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
 			   indir,
 			   mask,
 			   (hl->iraf_col==COLOR_R) ? 
-			   hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b]); 
+			   hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
+			   (sc_inte0) ? "+" : "-",
+			   (sc_resi0) ? "+" : "-",
+			   (sc_edit0) ? "+" : "-",
+			   (sc_fitt0) ? "+" : "-"); 
 
       if(is_ret){  // Image Slicer
-	tmp2=g_strdup_printf(" flat- fl_refe=%s apall- ap_refe=%s ap_rece- isecf+", 
+	tmp2=g_strdup_printf(" flat- fl_refe=%s apall- ap_refe=%s ap_rece- isecf+ is_plot%s is_stx=%d is_edx=%d", 
 			     (hl->iraf_col==COLOR_R) ? 
 			     hl->flat_red[hl->iraf_hdsql_r] : hl->flat_blue[hl->iraf_hdsql_b], 
 			     (hl->iraf_col==COLOR_R) ? 
-			     hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b]); 
+			     hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
+			     (is_plot0) ? "+" : "-",
+			     is_stx0, is_edx0); 
       }
       else{ // Normal Slit
 	if(flat_ret){
-	  tmp2=g_strdup_printf(" flat+ fl_refe=%s apall+ ap_refe=%s ap_rece- isecf-", 
-			      (hl->iraf_col==COLOR_R) ? 
-			      hl->flat_red[hl->iraf_hdsql_r] : hl->flat_blue[hl->iraf_hdsql_b], 
-			      (hl->iraf_col==COLOR_R) ? 
-			      hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b]);
+	  tmp2=g_strdup_printf(" flat+ fl_refe=%s apall+ ap_refe=%s ap_inte%s ap_rece- ap_resi%s ap_edit%s ap_llim=%d ap_ulim=%d isecf-", 
+			       (hl->iraf_col==COLOR_R) ? 
+			       hl->flat_red[hl->iraf_hdsql_r] : hl->flat_blue[hl->iraf_hdsql_b], 
+			       (hl->iraf_col==COLOR_R) ? 
+			       hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
+			       (ap_inte0) ? "+" : "-",
+			       (ap_resi0) ? "+" : "-",
+			       (ap_edit0) ? "+" : "-",
+			       ap_llim0, ap_ulim0);
 	}
 	else{
-	  tmp2=g_strdup_printf(" flat- apall+ ap_refe=%s ap_rece- isecf-", 
-			      (hl->iraf_col==COLOR_R) ? 
-			      hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b]);
+	  tmp2=g_strdup_printf(" flat- apall+ ap_refe=%s ap_inte%s ap_rece- ap_resi%s ap_edit%s ap_llim=%d ap_ulim=%d isecf-", 
+			       (hl->iraf_col==COLOR_R) ? 
+			       hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
+			       (ap_inte0) ? "+" : "-",
+			       (ap_resi0) ? "+" : "-",
+			       (ap_edit0) ? "+" : "-",
+			       ap_llim0, ap_ulim0);
 	}
       }
 
@@ -1496,13 +1572,11 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
 	tmp3=g_strdup_printf(" wavecal+ wv_refer=%s remask+ rvcorre+ splot+ sp_line=%d\'", 
 			     (hl->iraf_col==COLOR_R) ? 
 			     hl->thar_red[hl->iraf_hdsql_r] : hl->thar_blue[hl->iraf_hdsql_b],
-			     (hl->iraf_col==COLOR_R) ? 
-			     hl->iraf_order_r : hl->iraf_order_b);
+			     sp_line0);
       }
       else{
 	tmp3=g_strdup_printf(" wavecal- remask- rvcorre- splot+ sp_line=%d\'", 
-			     (hl->iraf_col==COLOR_R) ? 
-			     hl->iraf_order_r : hl->iraf_order_b);
+			     sp_line0);
       }
 
       tmp=g_strconcat(tmp1,tmp2,tmp3,NULL);
@@ -1695,12 +1769,15 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
 	hl->ap_blue[hl->iraf_hdsql_b]=g_strdup(hl->file_write);
       }
       set_setname(hl, i_sel);
-      set_ql_frame_label(hl);
+      
+
 
       if(hl->iraf_col==COLOR_R){
+	set_ql_frame_label(hl, hl->frame_ql_red, TRUE);
 	hl->frame[i_sel].qlr=TRUE;
       }
       else{
+	set_ql_frame_label(hl, hl->frame_ql_blue, TRUE);
 	hl->frame[i_sel].qlb=TRUE;
       }
       frame_tree_update_ql(hl, i_sel);
@@ -1732,7 +1809,13 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
       }
 
       set_setname(hl, i_sel);
-      set_ql_frame_label(hl);
+
+      if(hl->iraf_col==COLOR_R){
+	set_ql_frame_label(hl, hl->frame_ql_red, TRUE);
+      }
+      else{
+	set_ql_frame_label(hl, hl->frame_ql_blue, TRUE);
+      }
     }
     
   
@@ -1791,7 +1874,7 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
       hl->entry_ap_id = gtk_entry_new ();
       gtk_box_pack_start(GTK_BOX(hbox),hl->entry_ap_id,FALSE,FALSE,0);
       gtk_entry_set_width_chars(GTK_ENTRY(hl->entry_ap_id),120);
-      tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 recenter+ resize+",
+      tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 width=10 radius=30 recenter+ resize+",
 			  hl->file_write, hl->file_write);
       gtk_entry_set_text(GTK_ENTRY(hl->entry_ap_id), tmp);
       g_free(tmp);
@@ -2231,7 +2314,7 @@ void make_flat(typHLOG *hl){
       GtkWidget *dialog, *label, *combo;
       gint norm_mode=0;
       
-      dialog = gtk_dialog_new_with_buttons("HDSLOG : Dialog",
+      dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Dialog",
 					   GTK_WINDOW(hl->w_top),
 					   GTK_DIALOG_MODAL,
 #ifdef USE_GTK3
@@ -2555,7 +2638,7 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
 	unlink(hl->file_wait);
       }
       
-      tmp=g_strdup_printf("xdotool type --window %d \'%s %d indirec=%s batch- overw+ oversca+ biassub- maskbad+ mb_refer=%s linear- cosmicr- scatter- xtalk- flat- apall+ ap_refer=%s ap_inte+ ap_resi+ ap_rece- ap_edit+ ap_trac- ap_llim=-%d ap_ulim=%d isecf- wavecal- remask- rvcorre- splot-\'", 
+      tmp=g_strdup_printf("xdotool type --window %d \'%s %d indirec=%s batch- overw+ oversca+ biassub- maskbad+ mb_refer=%s linear- cosmicr- scatter- xtalk- flat- apall+ ap_refer=%s ap_inte+ ap_resi- ap_rece- ap_edit+ ap_trac- ap_llim=-%d ap_ulim=%d isecf- wavecal- remask- rvcorre- splot-\'", 
 			  winid, 
 			  (hl->iraf_col==COLOR_R) ? 
 			  hdsql_red[hl->iraf_hdsql_r] : hdsql_blue[hl->iraf_hdsql_b], 
@@ -2617,7 +2700,6 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
 	if(hl->thar_blue[hl->iraf_hdsql_b]) g_free(hl->thar_blue[hl->iraf_hdsql_b]);
 	hl->thar_blue[hl->iraf_hdsql_b]=g_strdup(hl->file_write);
       }
-      return;
     }
 
 
@@ -2626,7 +2708,7 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
       GtkWidget *dialog, *label, *combo, *hbox, *entry, *button, *table, *check;
       gint norm_mode=0;
       
-      dialog = gtk_dialog_new_with_buttons("HDSLOG : Dialog",
+      dialog = gtk_dialog_new_with_buttons("HD SLog Editor : Dialog",
 					   GTK_WINDOW(hl->w_top),
 					   GTK_DIALOG_MODAL,
 #ifdef USE_GTK3
@@ -2688,7 +2770,7 @@ void iraf_thar(typHLOG *hl, gint i_sel, gint i_file){
       hl->entry_thar_reid = gtk_entry_new ();
       gtk_box_pack_start(GTK_BOX(hbox),hl->entry_thar_reid,FALSE,FALSE,0);
       gtk_entry_set_width_chars(GTK_ENTRY(hl->entry_thar_reid),80);
-      tmp=g_strdup_printf("ecreidentify %s refer=",
+      tmp=g_strdup_printf("ecreidentify %s shift=0 refer=",
 			  hl->file_write);
       gtk_entry_set_text(GTK_ENTRY(hl->entry_thar_reid), tmp);
       g_free(tmp);
@@ -3182,7 +3264,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	if(hl->ref_frame) g_free(hl->ref_frame);
 	hl->ref_frame=get_refname_db(*tgt_file);
 
-	tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 recenter+ resize+ refer=%s",
+	tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 recenter+ resize+  width=10 radius=30 refer=%s",
 			    (hl->iraf_col==COLOR_R) ? 
 			    hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
 			    (hl->iraf_col==COLOR_R) ? 
@@ -3211,6 +3293,8 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  g_free(tmp);
 	  g_free(fits_file);
 
+	  check_db_dir(hl->wdir);
+
 	  tmp=g_strconcat("cp ",
 			  *tgt_file,
 			  " ",
@@ -3222,7 +3306,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  system(tmp);
 	  g_free(tmp);
 
-	  tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 recenter+ resize+ refer=%s",
+	  tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 recenter+ resize+  width=10 radius=30 refer=%s",
 			      (hl->iraf_col==COLOR_R) ? 
 			      hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
 			      (hl->iraf_col==COLOR_R) ? 
@@ -3251,7 +3335,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	if(hl->ref_frame) g_free(hl->ref_frame);
 	hl->ref_frame=get_refname_db(*tgt_file);
 
-	tmp=g_strdup_printf("ecreidentify %s refer=%s",
+	tmp=g_strdup_printf("ecreidentify %s shift=0 refer=%s",
 			    (hl->iraf_col==COLOR_R) ? 
 			    hl->thar_red[hl->iraf_hdsql_r] : hl->thar_blue[hl->iraf_hdsql_b],
 			    hl->ref_frame);
@@ -3278,6 +3362,8 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  g_free(tmp);
 	  g_free(fits_file);
 
+	  check_db_dir(hl->wdir);
+
 	  tmp=g_strconcat("cp ",
 			  *tgt_file,
 			  " ",
@@ -3289,7 +3375,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  system(tmp);
 	  g_free(tmp);
 
-	  tmp=g_strdup_printf("ecreidentify %s refer=%s",
+	  tmp=g_strdup_printf("ecreidentify %s shift=0 refer=%s",
 			      (hl->iraf_col==COLOR_R) ? 
 			      hl->thar_red[hl->iraf_hdsql_r] : hl->thar_blue[hl->iraf_hdsql_b],
 			      hl->ref_frame);
@@ -3349,7 +3435,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
     switch(mode){
     case REF1_AP:
     case REF2_AP:
-      tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 recenter+ resize+",
+      tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5  width=10 radius=30 recenter+ resize+",
 			  (hl->iraf_col==COLOR_R) ? 
 			  hl->ap_red[hl->iraf_hdsql_r] : hl->ap_blue[hl->iraf_hdsql_b],
 			  (hl->iraf_col==COLOR_R) ? 
@@ -3417,7 +3503,7 @@ void edit_cal(typHLOG *hl){
     *vbox, *hbox1, *entry, *button, *table;
   gchar *tmp;
       
-  dialog = gtk_dialog_new_with_buttons("HDSLOG : CAL frames for quick look",
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : CAL frames for quick look",
 				       GTK_WINDOW(hl->w_top),
 				       GTK_DIALOG_MODAL,
 #ifdef USE_GTK3
@@ -3601,7 +3687,13 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     db_check(hl, CAL_AP);
  
     set_setname(hl, i_sel);
-    set_ql_frame_label(hl);
+
+    if(hl->iraf_col==COLOR_R){
+      set_ql_frame_label(hl, hl->frame_ql_red, TRUE);
+    }
+    else{
+      set_ql_frame_label(hl, hl->frame_ql_blue, TRUE);
+    }
     
     
     // ThAr
@@ -3726,7 +3818,13 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     db_check(hl, CAL_AP);
     
     set_setname(hl, i_sel);
-    set_ql_frame_label(hl);
+
+    if(hl->iraf_col==COLOR_R){
+      set_ql_frame_label(hl, hl->frame_ql_red, TRUE);
+    }
+    else{
+      set_ql_frame_label(hl, hl->frame_ql_blue, TRUE);
+    }
 
     // ThAr
     if(!hl->thar_blue[hl->iraf_hdsql_b]){
@@ -3937,3 +4035,323 @@ void ql_find_blue(GtkWidget *w, gpointer gdata){
 			   tmp_scr);
 }
 
+
+void iraf_param(typHLOG *hl){
+  GtkWidget *dialog, *label, *frame, *table, *hbox, *check, *combo, *spinner;
+  GtkAdjustment *adj;
+  gchar *tmp;
+
+  if((hl->iraf_col==COLOR_R) ?
+     !hl->flag_ap_red[hl->iraf_hdsql_r] :
+     !hl->flag_ap_blue[hl->iraf_hdsql_b]){
+    popup_message(hl->w_top, 
+#ifdef USE_GTK3
+		  "dialog-warning", 
+#else
+		  GTK_STOCK_DIALOG_WARNING,
+#endif
+		  -1,
+		  "No Aperture reference is found in this set.",
+		  " ",
+		  "Please set and make an Aperture reference by <b>Ap</b> button.",
+		  NULL);
+    return;
+  }
+
+
+  dialog = gtk_dialog_new_with_buttons("HDS Log Editor : Parameters for hdsql",
+				       GTK_WINDOW(hl->w_top),
+				       GTK_DIALOG_MODAL,
+#ifdef USE_GTK3
+				       "_OK",GTK_RESPONSE_OK,
+#else
+				       GTK_STOCK_OK,GTK_RESPONSE_OK,
+#endif
+				       NULL);
+  gtk_window_set_transient_for(GTK_WINDOW(dialog),GTK_WINDOW(hl->w_top));
+  gtk_container_set_border_width(GTK_CONTAINER(dialog),5);
+  gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK); 
+
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     hbox,FALSE, FALSE, 0);
+
+  tmp=g_strdup_printf("Setup-%d : %s : ",
+		      (hl->iraf_col==COLOR_R) ?
+		      hl->iraf_hdsql_r+1 : hl->iraf_hdsql_b+1,
+		      (hl->iraf_col==COLOR_R) ?
+		      hdsql_red[hl->iraf_hdsql_r] : hdsql_blue[hl->iraf_hdsql_b]);
+  label=gtkut_label_new(tmp);
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE, FALSE, 0);
+
+  label=gtkut_label_new(" ");
+  set_ql_frame_label(hl, label, FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE, FALSE, 0);
+
+  // sc
+  frame = gtkut_frame_new ("<b>Scattered Light Subtraction</b> (sc_*)");
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     frame,FALSE, FALSE, 0);
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_container_add (GTK_CONTAINER (frame), hbox);
+
+  check = gtk_check_button_new_with_label("sc_inte");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].sc_inte :
+			       hl->qp_b[hl->iraf_hdsql_b].sc_inte);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].sc_inte :
+		    &hl->qp_b[hl->iraf_hdsql_b].sc_inte);
+  
+  check = gtk_check_button_new_with_label("sc_resi");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].sc_resi :
+			       hl->qp_b[hl->iraf_hdsql_b].sc_resi);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].sc_resi :
+		    &hl->qp_b[hl->iraf_hdsql_b].sc_resi);
+
+  check = gtk_check_button_new_with_label("sc_edit");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].sc_edit :
+			       hl->qp_b[hl->iraf_hdsql_b].sc_edit);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].sc_edit :
+		    &hl->qp_b[hl->iraf_hdsql_b].sc_edit);
+
+  check = gtk_check_button_new_with_label("sc_fitt");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].sc_fitt :
+			       hl->qp_b[hl->iraf_hdsql_b].sc_fitt);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].sc_fitt :
+		    &hl->qp_b[hl->iraf_hdsql_b].sc_fitt);
+
+
+  // ap
+  frame = gtkut_frame_new ("<b>Aperture Extraction</b> (ap_*)");
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     frame,FALSE, FALSE, 0);
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_container_add (GTK_CONTAINER (frame), hbox);
+
+  check = gtk_check_button_new_with_label("ap_inte");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].ap_inte :
+			       hl->qp_b[hl->iraf_hdsql_b].ap_inte);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ap_inte :
+		    &hl->qp_b[hl->iraf_hdsql_b].ap_inte);
+  
+  check = gtk_check_button_new_with_label("ap_resi");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].ap_resi :
+			       hl->qp_b[hl->iraf_hdsql_b].ap_resi);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ap_resi :
+		    &hl->qp_b[hl->iraf_hdsql_b].ap_resi);
+
+  check = gtk_check_button_new_with_label("ap_edit");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].ap_edit :
+			       hl->qp_b[hl->iraf_hdsql_b].ap_edit);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ap_edit :
+		    &hl->qp_b[hl->iraf_hdsql_b].ap_edit);
+
+  label = gtk_label_new ("  ap_llim");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].ap_llim :
+					    hl->qp_b[hl->iraf_hdsql_b].ap_llim,
+					    -40,40,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ap_llim :
+		    &hl->qp_b[hl->iraf_hdsql_b].ap_llim);
+
+  label = gtk_label_new ("  ap_ulim");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].ap_ulim :
+					    hl->qp_b[hl->iraf_hdsql_b].ap_ulim,
+					    -40,40,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ap_ulim :
+		    &hl->qp_b[hl->iraf_hdsql_b].ap_ulim);
+
+
+  // is
+  frame = gtkut_frame_new ("<b>Image Slicer</b> (is_*)");
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     frame,FALSE, FALSE, 0);
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_container_add (GTK_CONTAINER (frame), hbox);
+
+  check = gtk_check_button_new_with_label("is_plot");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].is_plot :
+			       hl->qp_b[hl->iraf_hdsql_b].is_plot);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].is_plot :
+		    &hl->qp_b[hl->iraf_hdsql_b].is_plot);
+  
+  label = gtk_label_new ("  is_stx");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].is_stx :
+					    hl->qp_b[hl->iraf_hdsql_b].is_stx,
+					    -40,40,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].is_stx :
+		    &hl->qp_b[hl->iraf_hdsql_b].is_stx);
+
+  label = gtk_label_new ("  is_edx");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].is_edx :
+					    hl->qp_b[hl->iraf_hdsql_b].is_edx,
+					    -40,40,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].is_edx :
+		    &hl->qp_b[hl->iraf_hdsql_b].is_edx);
+
+  // splot
+  frame = gtkut_frame_new ("<b>Splot</b> (sp_*)");
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     frame,FALSE, FALSE, 0);
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_container_add (GTK_CONTAINER (frame), hbox);
+
+  label = gtk_label_new ("sp_line");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  {
+    GtkListStore *store;
+    GtkTreeIter iter, iter_set;	  
+    GtkCellRenderer *renderer;
+    gint i_ord;
+    gchar *tmp;
+
+    store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+
+    for(i_ord=1;i_ord<40;i_ord++){
+      tmp=g_strdup_printf("order %d", i_ord);
+      gtk_list_store_append(store, &iter);
+      gtk_list_store_set(store, &iter, 
+			 0, tmp,
+			 1, i_ord, -1);
+      g_free(tmp);
+      if(((hl->iraf_col==COLOR_R) ?
+	 hl->qp_r[hl->iraf_hdsql_r].sp_line :
+	 hl->qp_b[hl->iraf_hdsql_b].sp_line)==i_ord) iter_set=iter;
+    }
+    
+    combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
+    gtk_box_pack_start(GTK_BOX(hbox),combo,FALSE,FALSE,0);
+    g_object_unref(store);
+    
+    renderer = gtk_cell_renderer_text_new();
+    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo),renderer, TRUE);
+    gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT(combo), renderer, "text",0,NULL);
+    
+    gtk_combo_box_set_active_iter(GTK_COMBO_BOX(combo),&iter_set);
+    gtk_widget_show(combo);
+    g_signal_connect (combo,"changed",G_CALLBACK(cc_get_combo_box),
+		      (hl->iraf_col==COLOR_R) ?
+		      &hl->qp_r[hl->iraf_hdsql_r].sp_line :
+		      &hl->qp_b[hl->iraf_hdsql_b].sp_line);
+  }
+
+
+
+  gtk_widget_show_all(dialog);
+
+  gtk_dialog_run(GTK_DIALOG(dialog));
+  if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
+}
+
+void ql_param_red(GtkWidget *w, gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+
+  hl->iraf_col=COLOR_R;
+
+  iraf_param(hl);
+}
+
+void ql_param_blue(GtkWidget *w, gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+
+  hl->iraf_col=COLOR_B;
+
+  iraf_param(hl);
+}

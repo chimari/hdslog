@@ -373,6 +373,26 @@ struct _FRAMEpara{
   gboolean qlb;
 };
 
+typedef struct _QLParam QLParam;
+struct _QLParam{
+  gboolean sc_inte;
+  gboolean sc_resi;
+  gboolean sc_edit;
+  gboolean sc_fitt;
+  
+  gboolean ap_inte;
+  gboolean ap_resi;
+  gboolean ap_edit;
+  gint     ap_llim;
+  gint     ap_ulim;
+
+  gboolean is_plot;
+  gint     is_stx;
+  gint     is_edx;
+
+  gint     sp_line;
+};
+
 typedef struct _typHLOG typHLOG;
 struct _typHLOG{
   GtkWidget *w_top;
@@ -497,8 +517,8 @@ struct _typHLOG{
   gint iraf_col;
   gint iraf_hdsql_r;
   gint iraf_hdsql_b;
-  gint iraf_order_r;
-  gint iraf_order_b;
+  //  gint iraf_order_r;
+  //  gint iraf_order_b;
   gchar *file_write;
   gchar *file_wait;
 
@@ -550,6 +570,9 @@ struct _typHLOG{
   gchar *remote_user;
   gchar *remote_pass;
   gchar *remote_dir;
+
+  QLParam qp_r[NUM_SET];
+  QLParam qp_b[NUM_SET];
 };
 
 
@@ -563,6 +586,8 @@ gchar* to_locale();
 void ReadLog();
 
 void cc_get_entry ();
+void cc_get_adj ();
+void cc_get_toggle();
 void cc_get_combo_box ();
 
 gchar *fgets_new();

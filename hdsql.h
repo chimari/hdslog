@@ -34,3 +34,5 @@ void ql_thar_red();
 void ql_thar_blue();
 void ql_find_red();
 void ql_find_blue();
+void ql_param_red();
+void ql_param_blue();

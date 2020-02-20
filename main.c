@@ -17,9 +17,7 @@ void write_muttrc();
 void write_msmtprc();
 
 void ChildTerm();
-static void cc_get_adj ();
 static void cc_get_note ();
-static void cc_get_toggle();
 
 static void refresh_table ();
 gboolean create_lock ();
@@ -35,6 +33,7 @@ void ext_play();
 gint scan_command();
 gint printdir();
 void gui_init();
+void splot_help();
 void show_version();
 
 gboolean check_scan ();
@@ -224,7 +223,13 @@ static void close_child_dialog(GtkWidget *w, GtkWidget *dialog)
 }
 
 
-static void cc_get_adj (GtkWidget *widget, gint * gdata)
+static void close_dialog(GtkWidget *w, GtkWidget *dialog)
+{
+  if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
+}
+
+
+void cc_get_adj (GtkWidget *widget, gint * gdata)
 {
   *gdata=(int)gtk_adjustment_get_value(GTK_ADJUSTMENT(widget));
 }
@@ -257,7 +262,7 @@ static void cc_get_note (GtkWidget *widget, gpointer gdata)
   }
 }
 
-static void cc_get_toggle (GtkWidget * widget, gboolean * gdata)
+void cc_get_toggle (GtkWidget * widget, gboolean * gdata)
 {
   *gdata=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
@@ -293,7 +298,7 @@ void cc_change_set_red (GtkWidget *widget,  gpointer gdata)
     hl->iraf_hdsql_r=n;
     
     set_cal_frame_red(hl);
-    set_ql_frame_label(hl);
+    set_ql_frame_label(hl, hl->frame_ql_red, TRUE);
   }
 }
 
@@ -314,7 +319,7 @@ void cc_change_set_blue (GtkWidget *widget,  gpointer gdata)
     hl->iraf_hdsql_b=n;
     
     set_cal_frame_blue(hl);
-    set_ql_frame_label(hl);
+    set_ql_frame_label(hl, hl->frame_ql_blue, TRUE);
   }
 }
 
@@ -2061,7 +2066,7 @@ gboolean start_scan_command(gpointer gdata){
       break;
 
     case SCR_SMART:
-      if(hl->frame_tree_i > hl->num-3){
+      if(hl->frame_tree_i > hl->num-2){
 	frame_tree_select_last(hl);
       }
       break;
@@ -2444,6 +2449,19 @@ GtkWidget *make_menu(typHLOG *hl){
     g_signal_connect (popup_button, "activate",G_CALLBACK(do_cp_cal),(gpointer)hl);
   }
 
+#ifdef USE_GTK3
+  image=gtk_image_new_from_icon_name ("help-browser", GTK_ICON_SIZE_MENU);
+  popup_button =gtkut_image_menu_item_new_with_label (image, "Splot Help");
+#else
+  image=gtk_image_new_from_stock (GTK_STOCK_HELP, GTK_ICON_SIZE_MENU);
+  popup_button =gtk_image_menu_item_new_with_label ("Splot Help");
+  gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(popup_button),image);
+#endif
+  gtk_widget_show (popup_button);
+  gtk_container_add (GTK_CONTAINER (menu), popup_button);
+  g_signal_connect (popup_button, "activate", 
+		    G_CALLBACK(splot_help), (gpointer)hl);
+
   //// Info
 #ifdef USE_GTK3
   image=gtk_image_new_from_icon_name ("user-info", GTK_ICON_SIZE_MENU);
@@ -2539,7 +2557,7 @@ void gui_init(typHLOG *hl){
   g_signal_connect (button, "clicked",
 		    G_CALLBACK (ql_obj_red), (gpointer)hl);
 
-  label=gtkut_label_new("<span size=\"smaller\">SetUp</span>");
+  label=gtkut_label_new("<span size=\"smaller\">set</span>");
   gtkut_table_attach(table, label, 1, 2, 0, 1,
 		     GTK_FILL,GTK_SHRINK,0,0);
 
@@ -2578,44 +2596,21 @@ void gui_init(typHLOG *hl){
 		      (gpointer)hl);
   }
 
-  label=gtkut_label_new("<span size=\"smaller\">order</span>");
+  label=gtkut_label_new("<span size=\"smaller\">conf</span>");
   gtkut_table_attach(table, label, 2, 3, 0, 1,
 		     GTK_FILL,GTK_SHRINK,0,0);
-  {
-    GtkListStore *store;
-    GtkTreeIter iter, iter_set;	  
-    GtkCellRenderer *renderer;
-    gint i_ord;
-    gchar *tmp;
 
-    store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name(NULL,"preferences-system");
+#else
+  button=gtkut_button_new_from_stock(NULL, GTK_STOCK_PROPERTIES);
+#endif
+  gtkut_table_attach(table, button, 2, 3, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  g_signal_connect (button, "clicked",
+		    G_CALLBACK (ql_param_red), (gpointer)hl);
 
-    for(i_ord=1;i_ord<40;i_ord++){
-      tmp=g_strdup_printf("%d", i_ord);
-      gtk_list_store_append(store, &iter);
-      gtk_list_store_set(store, &iter, 
-			 0, tmp,
-			 1, i_ord, -1);
-      g_free(tmp);
-      if(hl->iraf_order_r==i_ord) iter_set=iter;
-    }
-    
-    combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
-    gtkut_table_attach(table, combo, 2, 3, 1, 2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-    g_object_unref(store);
-    
-    renderer = gtk_cell_renderer_text_new();
-    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo),renderer, TRUE);
-    gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT(combo), renderer, "text",0,NULL);
-    
-    gtk_combo_box_set_active_iter(GTK_COMBO_BOX(combo),&iter_set);
-    gtk_widget_show(combo);
-    g_signal_connect (combo,"changed",G_CALLBACK(cc_get_combo_box),
-		       &hl->iraf_order_r);
-  }
-
-  
+ 
   frame1 = gtkut_frame_new ("Calibration");
   gtkut_table_attach(table, frame1, 3, 4, 0, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
@@ -2683,8 +2678,6 @@ void gui_init(typHLOG *hl){
     
     gtk_combo_box_set_active_iter(GTK_COMBO_BOX(hl->combo_flat_red),&iter_set);
     gtk_widget_show(hl->combo_flat_red);
-    //g_signal_connect (combo,"changed",G_CALLBACK(cc_get_combo_box),
-    //		       &hl->iraf_order_b);
     gtk_widget_set_sensitive(hl->combo_flat_red,FALSE);
   }
 
@@ -2727,7 +2720,7 @@ void gui_init(typHLOG *hl){
   g_signal_connect (button, "clicked",
 		    G_CALLBACK (ql_obj_blue), (gpointer)hl);
   
-  label=gtkut_label_new("<span size=\"smaller\">SetUp</span>");
+  label=gtkut_label_new("<span size=\"smaller\">set</span>");
   gtkut_table_attach(table, label, 1, 2, 0, 1,
 		     GTK_FILL,GTK_SHRINK,0,0);
   {
@@ -2765,42 +2758,20 @@ void gui_init(typHLOG *hl){
 		      (gpointer)hl);
   }
 
-  label=gtkut_label_new("<span size=\"smaller\">order</span>");
+  label=gtkut_label_new("<span size=\"smaller\">conf</span>");
   gtkut_table_attach(table, label, 2, 3, 0, 1,
 		     GTK_FILL,GTK_SHRINK,0,0);
-  {
-    GtkListStore *store;
-    GtkTreeIter iter, iter_set;	  
-    GtkCellRenderer *renderer;
-    gint i_ord;
-    gchar *tmp;
 
-    store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name(NULL,"preferences-system");
+#else
+  button=gtkut_button_new_from_stock(NULL, GTK_STOCK_PROPERTIES);
+#endif
+  gtkut_table_attach(table, button, 2, 3, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  g_signal_connect (button, "clicked",
+		    G_CALLBACK (ql_param_blue), (gpointer)hl);
 
-    for(i_ord=1;i_ord<40;i_ord++){
-      tmp=g_strdup_printf("%d", i_ord);
-      gtk_list_store_append(store, &iter);
-      gtk_list_store_set(store, &iter, 
-			 0, tmp,
-			 1, i_ord, -1);
-      if(hl->iraf_order_b==i_ord) iter_set=iter;
-      g_free(tmp);
-    }
-    
-    combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
-    gtkut_table_attach(table, combo, 2, 3, 1, 2,
-		       GTK_FILL,GTK_SHRINK,0,0);
-    g_object_unref(store);
-    
-    renderer = gtk_cell_renderer_text_new();
-    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo),renderer, TRUE);
-    gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT(combo), renderer, "text",0,NULL);
-    
-    gtk_combo_box_set_active_iter(GTK_COMBO_BOX(combo),&iter_set);
-    gtk_widget_show(combo);
-    g_signal_connect (combo,"changed",G_CALLBACK(cc_get_combo_box),
-		       &hl->iraf_order_b);
-  }
 
   frame1 = gtkut_frame_new ("Calibration");
   gtkut_table_attach(table, frame1, 3, 4, 0, 2,
@@ -2868,8 +2839,6 @@ void gui_init(typHLOG *hl){
     
     gtk_combo_box_set_active_iter(GTK_COMBO_BOX(hl->combo_flat_blue),&iter_set);
     gtk_widget_show(hl->combo_flat_blue);
-    //g_signal_connect (combo,"changed",G_CALLBACK(cc_get_combo_box),
-    //		       &hl->iraf_order_b);
     gtk_widget_set_sensitive(hl->combo_flat_blue,FALSE);
   }
 
@@ -2888,6 +2857,245 @@ void gui_init(typHLOG *hl){
   gtk_widget_set_sensitive(hl->check_thar_blue, FALSE);
 
   gtk_widget_show_all(hl->w_top);
+}
+
+
+
+void splot_help(GtkWidget *w, gpointer gdata){
+  typHLOG *hl=(typHLOG *)gdata;
+  GtkWidget *dialog, *frame, *table, *label, *vbox, *button, *hbox;
+
+  dialog = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  gtk_window_set_title(GTK_WINDOW(dialog), "HDS Log Editor : Help for splot");
+
+  vbox = gtkut_vbox_new(FALSE,0);
+  gtk_container_add (GTK_CONTAINER (dialog), vbox);
+
+  frame = gtkut_frame_new ("<b>Change Order</b>");
+  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame), 3);
+  
+  table = gtkut_table_new (2, 2, FALSE, 2, 2, 2);
+  gtk_container_add (GTK_CONTAINER (frame), table);
+
+  label=gtkut_label_new("    <b>(</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Move to previous");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  label=gtkut_label_new("    <b>)</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Move to next");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  frame = gtkut_frame_new ("<b>X-axis Scale</b>");
+  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame), 3);
+  
+  table = gtkut_table_new (2, 2, FALSE, 2, 2, 2);
+  gtk_container_add (GTK_CONTAINER (frame), table);
+
+  label=gtkut_label_new("    <b>v</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Velocity scale [km/s] (toggle)");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  label=gtkut_label_new("    <b>$</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Pixel (toggle)");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  frame = gtkut_frame_new ("<b>Y-axis Scale</b>");
+  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame), 3);
+  
+  table = gtkut_table_new (2, 1, FALSE, 2, 2, 2);
+  gtk_container_add (GTK_CONTAINER (frame), table);
+
+  label=gtkut_label_new("    <b>b</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Set base line to zero (toggle)");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+   
+  frame = gtkut_frame_new ("<b>Magnify</b>");
+  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame), 3);
+  
+  table = gtkut_table_new (2, 2, FALSE, 2, 2, 2);
+  gtk_container_add (GTK_CONTAINER (frame), table);
+
+  label=gtkut_label_new("    <b>a</b> &amp; <b>a</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Auto expand between cursors");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  label=gtkut_label_new("    <b>c</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Clear and redraw");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  frame = gtkut_frame_new ("<b>Measurement</b>");
+  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame), 3);
+  
+  table = gtkut_table_new (2, 4, FALSE, 2, 2, 2);
+  gtk_container_add (GTK_CONTAINER (frame), table);
+
+  label=gtkut_label_new("    <b>m</b> &amp; <b>m</b>   ");
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Avg, RMS, and SNR between cursors");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+ 
+  label=gtkut_label_new("    <b>k</b> &amp; <b>k</b>   ");
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Gaussian fit");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  label=gtkut_label_new("    <b>e</b> &amp; <b>e</b>   ");
+  gtkut_table_attach(table, label, 0, 1, 2, 3,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Get equivalent width");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 2, 3,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  label=gtkut_label_new("    <b>C</b>   ");
+  gtkut_table_attach(table, label, 0, 1, 3, 4,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Get values at cursor position");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 3, 4,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  
+  frame = gtkut_frame_new ("<b>Other Display Commands</b>");
+  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, TRUE, 0);
+  gtk_container_set_border_width (GTK_CONTAINER (frame), 3);
+  
+  table = gtkut_table_new (2, 2, FALSE, 2, 2, 2);
+  gtk_container_add (GTK_CONTAINER (frame), table);
+
+  label=gtkut_label_new("    <b>s</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 0, 1,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Smooth the spectrum by boxcar");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  label=gtkut_label_new("    <b>:hist y</b>    ");
+  gtkut_table_attach(table, label, 0, 1, 1, 2,
+		     GTK_SHRINK,GTK_SHRINK,0,0);
+  label=gtkut_label_new("Set line type to Histgram");
+#ifdef USE_GTK3
+  gtk_widget_set_halign (label, GTK_ALIGN_START);
+  gtk_widget_set_valign (label, GTK_ALIGN_CENTER);
+#else
+  gtk_misc_set_alignment (GTK_MISC (label), 0.0, 0.5);
+#endif
+  gtkut_table_attach(table, label, 1, 2, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+   
+  
+  hbox = gtkut_hbox_new(FALSE,0);
+  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+#ifdef USE_GTK3
+  button=gtkut_button_new_from_icon_name("Close","window-close");
+#else
+  button=gtkut_button_new_from_stock("Close",GTK_STOCK_CLOSE);
+#endif
+  g_signal_connect (button, "clicked",
+		    G_CALLBACK (close_dialog), dialog);
+  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+
+  gtk_widget_show_all(dialog);
 }
 
 
@@ -3220,8 +3428,6 @@ int main(int argc, char* argv[]){
   hl->spass=NULL;
   hl->iraf_hdsql_r=0;
   hl->iraf_hdsql_b=0;
-  hl->iraf_order_r=1;
-  hl->iraf_order_b=1;
   hl->file_write=NULL;
   hl->file_wait=NULL;
   hl->ref_frame=NULL;
@@ -3247,6 +3453,34 @@ int main(int argc, char* argv[]){
     hl->ex_flat_blue[i]=FLAT_EX_NO;
     hl->flag_thar_red[i]=FALSE;
     hl->flag_thar_blue[i]=FALSE;
+
+    hl->qp_r[i].sc_inte=TRUE;
+    hl->qp_r[i].sc_resi=FALSE;
+    hl->qp_r[i].sc_edit=TRUE;
+    hl->qp_r[i].sc_fitt=TRUE;
+    hl->qp_r[i].ap_inte=TRUE;
+    hl->qp_r[i].ap_resi=TRUE;
+    hl->qp_r[i].ap_edit=TRUE;
+    hl->qp_r[i].ap_llim=-20;
+    hl->qp_r[i].ap_ulim=+20;
+    hl->qp_r[i].is_plot=TRUE;
+    hl->qp_r[i].is_stx=-20;
+    hl->qp_r[i].is_edx=+20;
+    hl->qp_r[i].sp_line=5;
+
+    hl->qp_b[i].sc_inte=TRUE;
+    hl->qp_b[i].sc_resi=FALSE;
+    hl->qp_b[i].sc_edit=TRUE;
+    hl->qp_b[i].sc_fitt=TRUE;
+    hl->qp_b[i].ap_inte=TRUE;
+    hl->qp_b[i].ap_resi=TRUE;
+    hl->qp_b[i].ap_edit=TRUE;
+    hl->qp_b[i].ap_llim=-20;
+    hl->qp_b[i].ap_ulim=+20;
+    hl->qp_b[i].is_plot=TRUE;
+    hl->qp_b[i].is_stx=-20;
+    hl->qp_b[i].is_edx=+20;
+    hl->qp_b[i].sp_line=5;
   }
 
   hl->remote_flag=FALSE;
