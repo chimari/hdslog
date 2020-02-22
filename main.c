@@ -392,6 +392,8 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
   hl->imr_flag=hl->imr_tmpfl;
   hl->adc_flag=hl->adc_tmpfl;
 
+  hl->i_reduced=0;
+
   make_frame_tree(hl);
   
   gtk_widget_set_sensitive(hl->b_refresh,TRUE);
@@ -732,7 +734,7 @@ void make_top_table(typHLOG *hl){
   gtkut_table_attach(hl->top_table, hbox, 0, 1, 1, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
 
-  label = gtk_label_new ("Date (HST)");
+  label = gtkut_label_new ("Date <span size=\"smaller\">(HST)</span>");
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
 
   hl->fr_e = gtk_entry_new();
@@ -3555,6 +3557,8 @@ int main(int argc, char* argv[]){
     hl->qp_b[i].is_edx=+20;
     hl->qp_b[i].sp_line=5;
   }
+  
+  hl->i_reduced=0;
 
   hl->remote_flag=FALSE;
   hl->remote_host=g_strdup(REMOTE_HOST);

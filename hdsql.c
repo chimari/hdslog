@@ -1404,6 +1404,7 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
   gboolean sc_inte0, sc_resi0, sc_edit0, sc_fitt0;
   gboolean ap_inte0, ap_resi0, ap_edit0, is_plot0;
   gint ap_llim0, ap_ulim0, is_stx0, is_edx0, sp_line0;
+  gint i_reduced_old;
 
   if(hl->iraf_col==COLOR_R){
     if(hl->flag_ap_red[hl->iraf_hdsql_r]){
@@ -1611,11 +1612,19 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
       return;
     }
 
+    i_reduced_old=abs(hl->i_reduced)-1;
+
     if(hl->iraf_col==COLOR_R){
       hl->frame[i_sel].qlr=TRUE;
+      hl->i_reduced=i_sel+1;
     }
     else{
       hl->frame[i_sel].qlb=TRUE;
+      hl->i_reduced=-(i_sel+1);
+    }
+
+    if(i_reduced_old>=0){
+      frame_tree_update_ql(hl, i_reduced_old);
     }
     frame_tree_update_ql(hl, i_sel);
 

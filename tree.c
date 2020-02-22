@@ -3,6 +3,8 @@
 static void frame_tree_add_columns();
 static GtkTreeModel *frame_tree_create_items_model();
 static void focus_frame_tree_item ();
+void qlr_cell_data_func();
+void qlb_cell_data_func();
 void frame_tree_cell_data_func();
 static void cell_editing();
 static void cell_canceled();
@@ -127,7 +129,7 @@ static void frame_tree_add_columns (typHLOG *hl,
   
   column = gtk_tree_view_column_new_with_attributes (NULL,
 						     renderer,
-						     "text", 
+						     "markup", 
 						     COLUMN_FRAME_QLR,
 #ifdef USE_GTK3
 						     "foreground-rgba", COLUMN_FRAME_COLFG,
@@ -139,8 +141,8 @@ static void frame_tree_add_columns (typHLOG *hl,
 						     NULL);
   gtkut_tree_view_column_set_markup(column, "<span color=\"#FF0000\">R</span><sub>QL</sub>");
   gtk_tree_view_column_set_cell_data_func(column, renderer,
-					  frame_tree_cell_data_func,
-					  GUINT_TO_POINTER(COLUMN_FRAME_QLR),
+					  qlr_cell_data_func,
+					  (gpointer)hl,
 					  NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW (treeview),column);
 
@@ -150,7 +152,7 @@ static void frame_tree_add_columns (typHLOG *hl,
   
   column = gtk_tree_view_column_new_with_attributes (NULL,
 						     renderer,
-						     "text", 
+						     "markup", 
 						     COLUMN_FRAME_QLB,
 #ifdef USE_GTK3
 						     "foreground-rgba", COLUMN_FRAME_COLFG,
@@ -162,8 +164,8 @@ static void frame_tree_add_columns (typHLOG *hl,
 						     NULL);
   gtkut_tree_view_column_set_markup(column, "<span color=\"#0000FF\">B</span><sub>QL</sub>");
   gtk_tree_view_column_set_cell_data_func(column, renderer,
-					  frame_tree_cell_data_func,
-					  GUINT_TO_POINTER(COLUMN_FRAME_QLB),
+					  qlb_cell_data_func,
+					  (gpointer)hl,
 					  NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW (treeview),column);
 
@@ -718,6 +720,80 @@ focus_frame_tree_item (GtkWidget *widget, gpointer data)
 }
 
 
+void qlr_cell_data_func(GtkTreeViewColumn *col , 
+			GtkCellRenderer *renderer,
+			GtkTreeModel *model, 
+			GtkTreeIter *iter,
+			gpointer user_data)
+{
+  gchar *str=NULL;
+  gboolean b_buf;
+  gint i;
+  typHLOG *hl=(typHLOG *) user_data;
+  
+  gtk_tree_model_get (model, iter, 
+		      COLUMN_FRAME_NUMBER, &i,
+		      -1);
+  i++;
+  
+  gtk_tree_model_get (model, iter, 
+		      COLUMN_FRAME_QLR, &b_buf,
+		      -1);
+ 
+  if(b_buf){
+    if(i==hl->i_reduced){
+      str=g_strdup("&#x2605;"); // star
+    }
+    else{
+      str=g_strdup("&#x25CB;"); // o
+    }
+  }
+  else{
+    str=g_strdup("&#x2015;");  // x
+  }
+  
+  g_object_set(renderer, "markup", str, NULL);
+  if(str) g_free(str);
+}
+
+
+void qlb_cell_data_func(GtkTreeViewColumn *col , 
+			GtkCellRenderer *renderer,
+			GtkTreeModel *model, 
+			GtkTreeIter *iter,
+			gpointer user_data)
+{
+  gchar *str=NULL;
+  gboolean b_buf;
+  gint i;
+  typHLOG *hl=(typHLOG *) user_data;
+  
+  gtk_tree_model_get (model, iter, 
+		      COLUMN_FRAME_NUMBER, &i,
+		      -1);
+  i++;
+  
+  gtk_tree_model_get (model, iter, 
+		      COLUMN_FRAME_QLB, &b_buf,
+		      -1);
+ 
+  if(b_buf){
+    if(i==-(hl->i_reduced)){
+      str=g_strdup("&#x2605;"); // star
+    }
+    else{
+      str=g_strdup("&#x25CB;"); // o
+    }
+  }
+  else{
+    str=g_strdup("&#x2015;");  // x
+  }
+  
+  g_object_set(renderer, "markup", str, NULL);
+  if(str) g_free(str);
+}
+
+
 void frame_tree_cell_data_func(GtkTreeViewColumn *col , 
 			    GtkCellRenderer *renderer,
 			    GtkTreeModel *model, 
@@ -841,10 +917,10 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
   case COLUMN_FRAME_QLR:
   case COLUMN_FRAME_QLB:
     if(b_buf){
-      str=g_strdup("o");
+      str=g_strdup("&#x25CB;");
     }
     else{
-      str=g_strdup("-");
+      str=g_strdup("&#x2015;");
     }
     break;
 
@@ -853,7 +929,17 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
     break;
   }
 
-  g_object_set(renderer, "text", str, NULL);
+  switch (index) {
+  case COLUMN_FRAME_QLR:
+  case COLUMN_FRAME_QLB:
+    g_object_set(renderer, "markup", str, NULL);
+    break;
+
+  default:
+    g_object_set(renderer, "text", str, NULL);
+    break;
+  }
+
   if(str)g_free(str);
 }
 

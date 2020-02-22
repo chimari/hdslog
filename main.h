@@ -578,6 +578,8 @@ struct _typHLOG{
 
   QLParam qp_r[NUM_SET];
   QLParam qp_b[NUM_SET];
+
+  gint i_reduced;
 };
 
 
