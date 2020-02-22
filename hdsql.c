@@ -105,6 +105,11 @@ void db_check(typHLOG *hl, gint cal){
 				   ret);
       gtk_widget_set_sensitive(hl->button_flat_red,ret);
       gtk_widget_set_sensitive(hl->button_thar_red,ret);
+      gtk_widget_set_sensitive(hl->check_auto_red,ret);
+      if(!ret){
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red), 
+				     ret);
+      }
     }
     else{
       hl->flag_ap_blue[hl->iraf_hdsql_b]=ret;
@@ -112,6 +117,11 @@ void db_check(typHLOG *hl, gint cal){
 				   ret);
       gtk_widget_set_sensitive(hl->button_flat_blue,ret);
       gtk_widget_set_sensitive(hl->button_thar_blue,ret);
+      gtk_widget_set_sensitive(hl->check_auto_blue,ret);
+      if(!ret){
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue), 
+				     ret);
+      }
     }
     break;
 
@@ -395,6 +405,8 @@ void set_cal_frame_red(typHLOG *hl){
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_ap_red), ap_flag);
   gtk_widget_set_sensitive(hl->button_flat_red, ap_flag);
   gtk_widget_set_sensitive(hl->button_thar_red, ap_flag);
+  gtk_widget_set_sensitive(hl->check_auto_red,ap_flag);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red), FALSE);
 
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_thar_red), 
 			       hl->flag_thar_red[hl->iraf_hdsql_r]);
@@ -408,6 +420,8 @@ void set_cal_frame_blue(typHLOG *hl){
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_ap_blue), ap_flag);
   gtk_widget_set_sensitive(hl->button_flat_blue, ap_flag);
   gtk_widget_set_sensitive(hl->button_thar_blue, ap_flag);
+  gtk_widget_set_sensitive(hl->check_auto_blue,ap_flag);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue), FALSE);
 
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_thar_blue), 
 			       hl->flag_thar_blue[hl->iraf_hdsql_b]);
@@ -3210,6 +3224,9 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  hl->flag_ap_red[hl->iraf_hdsql_r]=FALSE;
 	  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_ap_red), 
 				       FALSE);
+	  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red),
+				       FALSE);
+	  gtk_widget_set_sensitive(hl->check_auto_red,FALSE);
 	}
 	else{
 	  if(hl->ap_blue[hl->iraf_hdsql_b]) 
@@ -3219,6 +3236,9 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
 	  hl->flag_ap_blue[hl->iraf_hdsql_b]=FALSE;
 	  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_ap_blue), 
 				       FALSE);
+	  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue),
+				       FALSE);
+	  gtk_widget_set_sensitive(hl->check_auto_blue,FALSE);
 	}
 	set_ap_label(hl);
 	break;

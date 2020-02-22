@@ -267,6 +267,28 @@ void cc_get_toggle (GtkWidget * widget, gboolean * gdata)
   *gdata=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 }
 
+void cc_auto_red (GtkWidget * widget, gpointer gdata)
+{
+  typHLOG *hl=(typHLOG *)gdata;
+
+  hl->auto_red=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  if(hl->auto_red){
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue),
+				 FALSE);
+  }
+}
+
+void cc_auto_blue (GtkWidget * widget, gpointer gdata)
+{
+  typHLOG *hl=(typHLOG *)gdata;
+
+  hl->auto_blue=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+  if(hl->auto_blue){
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red),
+				 FALSE);
+  }
+}
+
 void cc_get_combo_box (GtkWidget *widget,  gint * gdata)
 {
   GtkTreeIter iter;
@@ -869,6 +891,7 @@ void update_frame_tree(typHLOG *hl){
   fprintf(stderr, "End Load\n");
 #endif
   
+  // No change
   if(hl->num_old==hl->num){
     if(flag_make_frame_tree){
       if(!gtk_tree_model_get_iter_first(model, &iter)) return;
@@ -905,6 +928,22 @@ void update_frame_tree(typHLOG *hl){
       gtk_list_store_insert (GTK_LIST_STORE (model), &iter, i);
       frame_tree_update_item(hl, GTK_TREE_MODEL(model), iter, i);
     }  
+
+    if(hl->num_old+1==hl->num){
+      if((strcmp(hl->frame[hl->num-1].name,"FLAT")!=0)
+	 && (strcmp(hl->frame[hl->num-1].name,"COMPARISON")!=0)
+	 && (strcmp(hl->frame[hl->num-1].name,"BIAS")!=0)
+	 && (strcmp(hl->frame[hl->num-1].name,"DARK")!=0)){
+	if(hl->auto_red){
+	  frame_tree_select_last(hl);
+	  ql_obj_red(NULL, (gpointer)hl);
+	}
+	else if(hl->auto_blue){
+	  frame_tree_select_last(hl);
+	  ql_obj_blue(NULL, (gpointer)hl);
+	}
+      }
+    }
   }
 
 }
@@ -2121,6 +2160,7 @@ void check_cal(typHLOG *hl){
 				   TRUE);
       gtk_widget_set_sensitive(hl->button_flat_red,TRUE);
       gtk_widget_set_sensitive(hl->button_thar_red,TRUE);
+      gtk_widget_set_sensitive(hl->check_auto_red,TRUE);
 
       indir=get_indir(hl);
       edit_uparm(hl,"indirec","s",indir);
@@ -2164,6 +2204,7 @@ void check_cal(typHLOG *hl){
 				   TRUE);
       gtk_widget_set_sensitive(hl->button_flat_blue,TRUE);
       gtk_widget_set_sensitive(hl->button_thar_blue,TRUE);
+      gtk_widget_set_sensitive(hl->check_auto_blue,TRUE);
 
       indir=get_indir(hl);
       edit_uparm(hl,"indirec","s",indir);
@@ -2540,7 +2581,7 @@ void gui_init(typHLOG *hl){
   gtk_box_pack_start (GTK_BOX (hbox),hl->frame_ql_red, FALSE, FALSE, 0);
   gtk_container_set_border_width (GTK_CONTAINER (hl->frame_ql_red), 5);
 
-  table = gtkut_table_new (4, 2, FALSE, 2, 2, 2);
+  table = gtkut_table_new (5, 2, FALSE, 2, 2, 2);
   gtk_container_add (GTK_CONTAINER (hl->frame_ql_red), table);
   
   label=gtkut_label_new("<b>Obj</b>");
@@ -2596,8 +2637,22 @@ void gui_init(typHLOG *hl){
 		      (gpointer)hl);
   }
 
-  label=gtkut_label_new("<span size=\"smaller\">conf</span>");
+  label=gtkut_label_new("<span size=\"smaller\">auto</span>");
   gtkut_table_attach(table, label, 2, 3, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  hl->check_auto_red = gtk_check_button_new();
+  gtkut_table_attach(table, hl->check_auto_red, 2, 3, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red),FALSE);
+  gtk_widget_set_sensitive(hl->check_auto_red, FALSE);
+  g_signal_connect (hl->check_auto_red,"toggled",
+		    G_CALLBACK(cc_auto_red),
+		    (gpointer)hl);
+
+
+  label=gtkut_label_new("<span size=\"smaller\">conf</span>");
+  gtkut_table_attach(table, label, 3, 4, 0, 1,
 		     GTK_FILL,GTK_SHRINK,0,0);
 
 #ifdef USE_GTK3
@@ -2605,14 +2660,14 @@ void gui_init(typHLOG *hl){
 #else
   button=gtkut_button_new_from_stock(NULL, GTK_STOCK_PROPERTIES);
 #endif
-  gtkut_table_attach(table, button, 2, 3, 1, 2,
+  gtkut_table_attach(table, button, 3, 4, 1, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
   g_signal_connect (button, "clicked",
 		    G_CALLBACK (ql_param_red), (gpointer)hl);
 
  
   frame1 = gtkut_frame_new ("Calibration");
-  gtkut_table_attach(table, frame1, 3, 4, 0, 2,
+  gtkut_table_attach(table, frame1, 4, 5, 0, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
   gtk_container_set_border_width (GTK_CONTAINER (frame1), 5);
 
@@ -2702,7 +2757,7 @@ void gui_init(typHLOG *hl){
   gtk_box_pack_start (GTK_BOX (hbox),hl->frame_ql_blue, FALSE, FALSE, 0);
   gtk_container_set_border_width (GTK_CONTAINER (hl->frame_ql_blue), 5);
 
-  table = gtkut_table_new (4, 2, FALSE, 2, 2, 2);
+  table = gtkut_table_new (5, 2, FALSE, 2, 2, 2);
   gtk_container_add (GTK_CONTAINER (hl->frame_ql_blue), table);
   
   label=gtkut_label_new("<b>Obj</b>");
@@ -2758,8 +2813,23 @@ void gui_init(typHLOG *hl){
 		      (gpointer)hl);
   }
 
-  label=gtkut_label_new("<span size=\"smaller\">conf</span>");
+
+  label=gtkut_label_new("<span size=\"smaller\">auto</span>");
   gtkut_table_attach(table, label, 2, 3, 0, 1,
+		     GTK_FILL,GTK_SHRINK,0,0);
+
+  hl->check_auto_blue = gtk_check_button_new();
+  gtkut_table_attach(table, hl->check_auto_blue, 2, 3, 1, 2,
+		     GTK_FILL,GTK_SHRINK,0,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue),FALSE);
+  gtk_widget_set_sensitive(hl->check_auto_blue, FALSE);
+  g_signal_connect (hl->check_auto_blue,"toggled",
+		    G_CALLBACK(cc_auto_blue),
+		    (gpointer)hl);
+
+
+  label=gtkut_label_new("<span size=\"smaller\">conf</span>");
+  gtkut_table_attach(table, label, 3, 4, 0, 1,
 		     GTK_FILL,GTK_SHRINK,0,0);
 
 #ifdef USE_GTK3
@@ -2767,14 +2837,14 @@ void gui_init(typHLOG *hl){
 #else
   button=gtkut_button_new_from_stock(NULL, GTK_STOCK_PROPERTIES);
 #endif
-  gtkut_table_attach(table, button, 2, 3, 1, 2,
+  gtkut_table_attach(table, button, 3, 4, 1, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
   g_signal_connect (button, "clicked",
 		    G_CALLBACK (ql_param_blue), (gpointer)hl);
 
 
   frame1 = gtkut_frame_new ("Calibration");
-  gtkut_table_attach(table, frame1, 3, 4, 0, 2,
+  gtkut_table_attach(table, frame1, 4, 5, 0, 2,
 		     GTK_FILL,GTK_SHRINK,0,0);
   gtk_container_set_border_width (GTK_CONTAINER (frame1), 5);
 
@@ -3431,6 +3501,9 @@ int main(int argc, char* argv[]){
   hl->file_write=NULL;
   hl->file_wait=NULL;
   hl->ref_frame=NULL;
+
+  hl->auto_red=FALSE;
+  hl->auto_blue=FALSE;
 
   for(i=0;i<NUM_SET;i++){
     hl->bin1_red[i]=1;

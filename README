@@ -3,7 +3,7 @@
 #                         Document file                                  #
 #                                                                        # 
 #                                                                        # 
-#                                  ver 2.1.2 2020/02/19                  # 
+#                                  ver 2.1.3 2020/02/21                  # 
 #                               Copyright (C) 2005 Akito Tajitsu         #
 #      Subaru Telescope, National Astronomical Observatory of Japan      #
 #                                               tajitsu_at_naoj.org      # 
@@ -23,8 +23,9 @@ in your terminal.
 
 ### Environment ###
 This program is running under UNIX OSs with X window systems.
-Gtk+2 (default) or 3 is required.
-You need to use mutt with msmtp (recommended) to send logs via e-mail.
+Gtk+2 (default) or 3 (recommended) is required.
+You need to use mutt with msmtp to send logs via e-mail 
+(only for the summit system).
 
 xdotool, xgterm and IRAF environment for HDS data reduction (hdsql etc.) 
 are required to be installed to the system, if you want to use quick 

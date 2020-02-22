@@ -527,6 +527,11 @@ struct _typHLOG{
   gint bin2_red[NUM_SET];
   gint bin2_blue[NUM_SET];
 
+  gboolean auto_red;
+  gboolean auto_blue;
+  GtkWidget *check_auto_red;
+  GtkWidget *check_auto_blue;
+
   GtkWidget *frame_ql_red;
   GtkWidget *frame_ql_blue;
   gchar *setname_red[NUM_SET];
