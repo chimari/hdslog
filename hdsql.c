@@ -1420,6 +1420,7 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
   gboolean sc_inte0, sc_resi0, sc_edit0, sc_fitt0;
   gboolean ap_inte0, ap_resi0, ap_edit0, is_plot0, ge_cnt0;
   gint ap_llim0, ap_ulim0, is_stx0, is_edx0, sp_line0, ge_stx0, ge_edx0;
+  gdouble ge_low0, ge_high0;
   gint i_reduced_old;
   gint cnt;
 
@@ -1452,6 +1453,8 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     ge_cnt0 =hl->qp_r[hl->iraf_hdsql_r].ge_cnt;
     ge_stx0 =hl->qp_r[hl->iraf_hdsql_r].ge_stx;
     ge_edx0 =hl->qp_r[hl->iraf_hdsql_r].ge_edx;
+    ge_low0 =hl->qp_r[hl->iraf_hdsql_r].ge_low;
+    ge_high0 =hl->qp_r[hl->iraf_hdsql_r].ge_high;
 
     sp_line0=hl->qp_r[hl->iraf_hdsql_r].sp_line;
   }
@@ -1484,6 +1487,8 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     ge_cnt0 =hl->qp_b[hl->iraf_hdsql_b].ge_cnt;
     ge_stx0 =hl->qp_b[hl->iraf_hdsql_b].ge_stx;
     ge_edx0 =hl->qp_b[hl->iraf_hdsql_b].ge_edx;
+    ge_low0 =hl->qp_b[hl->iraf_hdsql_b].ge_low;
+    ge_high0 =hl->qp_b[hl->iraf_hdsql_b].ge_high;
 
     sp_line0=hl->qp_b[hl->iraf_hdsql_b].sp_line;
   }
@@ -1609,17 +1614,17 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
       }
 
       if(thar_ret){
-	tmp3=g_strdup_printf(" wavecal+ wv_refer=%s remask+ rvcorre+ getcnt%s ge_stx=%d ge_edx=%d splot+ sp_line=%d\'", 
+	tmp3=g_strdup_printf(" wavecal+ wv_refer=%s remask+ rvcorre+ getcnt%s ge_stx=%d ge_edx=%d ge_low=%.1lf ge_high=%.1lf splot+ sp_line=%d\'", 
 			     (hl->iraf_col==COLOR_R) ? 
 			     hl->thar_red[hl->iraf_hdsql_r] : hl->thar_blue[hl->iraf_hdsql_b],
 			     (ge_cnt0) ? "+" : "-",
-			     ge_stx0, ge_edx0,
+			     ge_stx0, ge_edx0,ge_low0,ge_high0,
 			     sp_line0);
       }
       else{
-	tmp3=g_strdup_printf(" wavecal- remask- rvcorre- getcnt%s ge_stx=%d ge_edx=%d splot+ sp_line=%d\'", 
+	tmp3=g_strdup_printf(" wavecal- remask- rvcorre- getcnt%s ge_stx=%d ge_edx=%d  ge_low=%.1lf ge_high=%.1lf splot+ sp_line=%d\'", 
 			     (ge_cnt0) ? "+" : "-",
-			     ge_stx0, ge_edx0,
+			     ge_stx0, ge_edx0,ge_low0,ge_high0,
 			     sp_line0);
       }
 
@@ -4431,6 +4436,40 @@ void iraf_param(typHLOG *hl){
 		    (hl->iraf_col==COLOR_R) ?
 		    &hl->qp_r[hl->iraf_hdsql_r].ge_edx :
 		    &hl->qp_b[hl->iraf_hdsql_b].ge_edx);
+
+  label = gtk_label_new ("  ge_low");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].ge_low :
+					    hl->qp_b[hl->iraf_hdsql_b].ge_low,
+					    0.5,3.0,
+					    0.1, 0.1, 0);
+  spinner =  gtk_spin_button_new (adj, 1, 1);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj_double),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ge_low :
+		    &hl->qp_b[hl->iraf_hdsql_b].ge_low);
+
+  label = gtk_label_new ("  ge_high");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].ge_high :
+					    hl->qp_b[hl->iraf_hdsql_b].ge_high,
+					    0.5,6.0,
+					    0.1, 0.1, 0);
+  spinner =  gtk_spin_button_new (adj, 1, 1);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj_double),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ge_high :
+		    &hl->qp_b[hl->iraf_hdsql_b].ge_high);
 
 
   // splot

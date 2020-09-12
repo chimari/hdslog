@@ -235,6 +235,11 @@ void cc_get_adj (GtkWidget *widget, gint * gdata)
   *gdata=(int)gtk_adjustment_get_value(GTK_ADJUSTMENT(widget));
 }
 
+void cc_get_adj_double (GtkWidget *widget, gdouble * gdata)
+{
+  *gdata=gtk_adjustment_get_value(GTK_ADJUSTMENT(widget));
+}
+
 void cc_get_entry (GtkWidget *widget, gchar **gdata)
 {
   g_free(*gdata);
@@ -3583,6 +3588,8 @@ int main(int argc, char* argv[]){
     hl->qp_r[i].ge_cnt=FALSE;
     hl->qp_r[i].ge_stx=1900;
     hl->qp_r[i].ge_edx=2100;
+    hl->qp_r[i].ge_low=0.5;
+    hl->qp_r[i].ge_high=1.5;
 
     hl->qp_b[i].sc_inte=FALSE;
     hl->qp_b[i].sc_resi=FALSE;
@@ -3601,6 +3608,8 @@ int main(int argc, char* argv[]){
     hl->qp_b[i].ge_cnt=FALSE;
     hl->qp_b[i].ge_stx=1900;
     hl->qp_b[i].ge_edx=2100;
+    hl->qp_b[i].ge_low=0.5;
+    hl->qp_b[i].ge_high=1.5;
   }
   
   hl->i_reduced=0;

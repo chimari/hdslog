@@ -398,6 +398,8 @@ struct _QLParam{
   gboolean ge_cnt;
   gint ge_stx;
   gint ge_edx;
+  gdouble ge_low;
+  gdouble ge_high;
 };
 
 typedef struct _typHLOG typHLOG;
@@ -602,6 +604,7 @@ void save_note();
 
 void cc_get_entry ();
 void cc_get_adj ();
+void cc_get_adj_double ();
 void cc_get_toggle();
 void cc_get_combo_box ();
 
