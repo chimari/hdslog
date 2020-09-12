@@ -316,6 +316,7 @@ struct _NOTEpara{
   gchar *txt;
   time_t time;
   gboolean auto_fl;
+  gint cnt;
 };
 
 
@@ -391,6 +392,12 @@ struct _QLParam{
   gint     is_edx;
 
   gint     sp_line;
+
+  gboolean ql_1st;
+
+  gboolean ge_cnt;
+  gint ge_stx;
+  gint ge_edx;
 };
 
 typedef struct _typHLOG typHLOG;
@@ -591,6 +598,7 @@ gboolean Flag_tree_editing;
 gchar* to_utf8();
 gchar* to_locale();
 void ReadLog();
+void save_note();
 
 void cc_get_entry ();
 void cc_get_adj ();

@@ -330,33 +330,33 @@ void set_setname(typHLOG *hl, gint i_sel){
     if(hl->setname_red[hl->iraf_hdsql_r]) 
       g_free(hl->setname_red[hl->iraf_hdsql_r]);
 
-    if(hl->ap_red[hl->iraf_hdsql_r]){
+    //if(hl->ap_red[hl->iraf_hdsql_r]){
       bin=g_strdup_printf("%dx%d", 
 			  hl->frame[i_sel].bin1,
 			  hl->frame[i_sel].bin2);
       hl->setname_red[hl->iraf_hdsql_r]=g_strconcat(setup,
 						    bin,
 						    NULL);
-    }
-    else{
-      hl->setname_red[hl->iraf_hdsql_r]=NULL;
-    }
+      //}
+      //else{
+      //hl->setname_red[hl->iraf_hdsql_r]=NULL;
+      //}
   }
   else{
     if(hl->setname_blue[hl->iraf_hdsql_b]) 
       g_free(hl->setname_blue[hl->iraf_hdsql_b]);
 
-    if(hl->ap_blue[hl->iraf_hdsql_b]){
+    //if(hl->ap_blue[hl->iraf_hdsql_b]){
       bin=g_strdup_printf("%dx%d", 
 			  hl->frame[i_sel].bin1,
 			  hl->frame[i_sel].bin2);
       hl->setname_blue[hl->iraf_hdsql_b]=g_strconcat(setup,
 						     bin,
 						     NULL);
-    }
-    else{
-      hl->setname_blue[hl->iraf_hdsql_b]=NULL;
-    }
+      //}
+      //else{
+      //hl->setname_blue[hl->iraf_hdsql_b]=NULL;
+      //}
   }
 
   g_free(setup);
@@ -1395,6 +1395,22 @@ gint iraf_quit_tk(typHLOG *hl){
   }
 }
 
+gint get_cnt(typHLOG *hl, gint i_file){
+  gchar *cnt_file;
+  FILE *fp;
+  gint ret=-1;
+
+  cnt_file=g_strdup_printf("%s/result/H%d_cnt",
+			   hl->wdir, i_file);
+  if((fp=fopen(cnt_file, "r"))!=NULL){
+    fscanf(fp, "%d", &ret);
+    fclose(fp);
+  }
+
+  g_free(cnt_file);
+  return(ret);
+}
+
 void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
   gint winid;
   gchar *tmp, *tmp1, *tmp2, *tmp3, *indir, *mask;
@@ -1402,9 +1418,10 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
   gboolean splot_flag=FALSE;
   gboolean ap_ret=FALSE, thar_ret=FALSE, flat_ret=FALSE, is_ret=FALSE;
   gboolean sc_inte0, sc_resi0, sc_edit0, sc_fitt0;
-  gboolean ap_inte0, ap_resi0, ap_edit0, is_plot0;
-  gint ap_llim0, ap_ulim0, is_stx0, is_edx0, sp_line0;
+  gboolean ap_inte0, ap_resi0, ap_edit0, is_plot0, ge_cnt0;
+  gint ap_llim0, ap_ulim0, is_stx0, is_edx0, sp_line0, ge_stx0, ge_edx0;
   gint i_reduced_old;
+  gint cnt;
 
   if(hl->iraf_col==COLOR_R){
     if(hl->flag_ap_red[hl->iraf_hdsql_r]){
@@ -1431,6 +1448,10 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     is_plot0=hl->qp_r[hl->iraf_hdsql_r].is_plot;
     is_stx0 =hl->qp_r[hl->iraf_hdsql_r].is_stx;
     is_edx0 =hl->qp_r[hl->iraf_hdsql_r].is_edx;
+
+    ge_cnt0 =hl->qp_r[hl->iraf_hdsql_r].ge_cnt;
+    ge_stx0 =hl->qp_r[hl->iraf_hdsql_r].ge_stx;
+    ge_edx0 =hl->qp_r[hl->iraf_hdsql_r].ge_edx;
 
     sp_line0=hl->qp_r[hl->iraf_hdsql_r].sp_line;
   }
@@ -1459,6 +1480,10 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     is_plot0=hl->qp_b[hl->iraf_hdsql_b].is_plot;
     is_stx0 =hl->qp_b[hl->iraf_hdsql_b].is_stx;
     is_edx0 =hl->qp_b[hl->iraf_hdsql_b].is_edx;
+
+    ge_cnt0 =hl->qp_b[hl->iraf_hdsql_b].ge_cnt;
+    ge_stx0 =hl->qp_b[hl->iraf_hdsql_b].ge_stx;
+    ge_edx0 =hl->qp_b[hl->iraf_hdsql_b].ge_edx;
 
     sp_line0=hl->qp_b[hl->iraf_hdsql_b].sp_line;
   }
@@ -1584,13 +1609,17 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
       }
 
       if(thar_ret){
-	tmp3=g_strdup_printf(" wavecal+ wv_refer=%s remask+ rvcorre+ splot+ sp_line=%d\'", 
+	tmp3=g_strdup_printf(" wavecal+ wv_refer=%s remask+ rvcorre+ getcnt%s ge_stx=%d ge_edx=%d splot+ sp_line=%d\'", 
 			     (hl->iraf_col==COLOR_R) ? 
 			     hl->thar_red[hl->iraf_hdsql_r] : hl->thar_blue[hl->iraf_hdsql_b],
+			     (ge_cnt0) ? "+" : "-",
+			     ge_stx0, ge_edx0,
 			     sp_line0);
       }
       else{
-	tmp3=g_strdup_printf(" wavecal- remask- rvcorre- splot+ sp_line=%d\'", 
+	tmp3=g_strdup_printf(" wavecal- remask- rvcorre- getcnt%s ge_stx=%d ge_edx=%d splot+ sp_line=%d\'", 
+			     (ge_cnt0) ? "+" : "-",
+			     ge_stx0, ge_edx0,
 			     sp_line0);
       }
 
@@ -1621,6 +1650,12 @@ void iraf_obj(typHLOG *hl, gint i_sel, gint i_file){
     else{
       hl->frame[i_sel].qlb=TRUE;
       hl->i_reduced=-(i_sel+1);
+    }
+
+    if(ge_cnt0){
+      cnt=get_cnt(hl, i_file);
+      hl->frame[i_sel].note.cnt=cnt;
+      if(cnt>0) save_note(hl);
     }
 
     if(i_reduced_old>=0){
@@ -3693,7 +3728,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
   }
 
   set_name=get_setname_long(hl, i_sel);
-    
+
   // Red
   if(hl->iraf_col==COLOR_R){
     // Ap
@@ -3716,6 +3751,7 @@ void iraf_find(typHLOG *hl, gint i_sel, gint i_file){
     db_check(hl, CAL_AP);
  
     set_setname(hl, i_sel);
+    
 
     if(hl->iraf_col==COLOR_R){
       set_ql_frame_label(hl, hl->frame_ql_red, TRUE);
@@ -4069,6 +4105,7 @@ void iraf_param(typHLOG *hl){
   GtkWidget *dialog, *label, *frame, *table, *hbox, *check, *combo, *spinner;
   GtkAdjustment *adj;
   gchar *tmp;
+  gint tmp_x;
 
   if((hl->iraf_col==COLOR_R) ?
      !hl->flag_ap_red[hl->iraf_hdsql_r] :
@@ -4118,6 +4155,34 @@ void iraf_param(typHLOG *hl){
   label=gtkut_label_new(" ");
   set_ql_frame_label(hl, label, FALSE);
   gtk_box_pack_start(GTK_BOX(hbox),label,FALSE, FALSE, 0);
+
+  // R<-->B
+  frame = gtkut_frame_new ("<b>Priority of reduction</b> (sc_*)");
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     frame,FALSE, FALSE, 0);
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_container_add (GTK_CONTAINER (frame), hbox);
+
+  if(hl->iraf_col==COLOR_R){
+    check = gtk_check_button_new_with_label("Red --> Blue");
+    gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+				 hl->qp_r[hl->iraf_hdsql_r].ql_1st);
+    g_signal_connect (check, "toggled",
+		      G_CALLBACK (cc_get_toggle),
+		      &hl->qp_r[hl->iraf_hdsql_r].ql_1st);
+  }
+  else{
+    check = gtk_check_button_new_with_label("Blue --> Red");
+    gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+				 hl->qp_b[hl->iraf_hdsql_b].ql_1st);
+    g_signal_connect (check, "toggled",
+		      G_CALLBACK (cc_get_toggle),
+		      &hl->qp_b[hl->iraf_hdsql_b].ql_1st);
+  }
 
   // sc
   frame = gtkut_frame_new ("<b>Scattered Light Subtraction</b> (sc_*)");
@@ -4312,6 +4377,62 @@ void iraf_param(typHLOG *hl){
 		    &hl->qp_r[hl->iraf_hdsql_r].is_edx :
 		    &hl->qp_b[hl->iraf_hdsql_b].is_edx);
 
+  // is
+  frame = gtkut_frame_new ("<b>Get Spectrum Count</b> (ge_*)");
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+		     frame,FALSE, FALSE, 0);
+
+  hbox = gtkut_hbox_new(FALSE,2);
+  gtk_container_set_border_width (GTK_CONTAINER (hbox), 5);
+  gtk_container_add (GTK_CONTAINER (frame), hbox);
+
+  check = gtk_check_button_new_with_label("ge_cnt");
+  gtk_box_pack_start(GTK_BOX(hbox),check,FALSE,FALSE,0);
+  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check),
+			       (hl->iraf_col==COLOR_R) ?
+			       hl->qp_r[hl->iraf_hdsql_r].ge_cnt :
+			       hl->qp_b[hl->iraf_hdsql_b].ge_cnt);
+  g_signal_connect (check, "toggled",
+		    G_CALLBACK (cc_get_toggle),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ge_cnt :
+		    &hl->qp_b[hl->iraf_hdsql_b].ge_cnt);
+  
+  label = gtk_label_new ("  ge_stx");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].ge_stx :
+					    hl->qp_b[hl->iraf_hdsql_b].ge_stx,
+					    1,3000,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ge_stx :
+		    &hl->qp_b[hl->iraf_hdsql_b].ge_stx);
+
+  label = gtk_label_new ("  ge_edx");
+  gtk_box_pack_start(GTK_BOX(hbox),label,FALSE,FALSE,0);
+
+  adj = (GtkAdjustment *)gtk_adjustment_new((hl->iraf_col==COLOR_R) ?
+					    hl->qp_r[hl->iraf_hdsql_r].ge_edx :
+					    hl->qp_b[hl->iraf_hdsql_b].ge_edx,
+					    1000,4100,
+					    1.0, 1.0, 0);
+  spinner =  gtk_spin_button_new (adj, 0, 0);
+  gtk_spin_button_set_wrap (GTK_SPIN_BUTTON (spinner), FALSE);
+  gtk_box_pack_start(GTK_BOX(hbox),spinner,FALSE,FALSE,0);
+  g_signal_connect (adj, "value_changed",
+		    G_CALLBACK (cc_get_adj),
+		    (hl->iraf_col==COLOR_R) ?
+		    &hl->qp_r[hl->iraf_hdsql_r].ge_edx :
+		    &hl->qp_b[hl->iraf_hdsql_b].ge_edx);
+
+
   // splot
   frame = gtkut_frame_new ("<b>Splot</b> (sp_*)");
   gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
@@ -4365,8 +4486,32 @@ void iraf_param(typHLOG *hl){
 
   gtk_widget_show_all(dialog);
 
+
   gtk_dialog_run(GTK_DIALOG(dialog));
   if(GTK_IS_WIDGET(dialog)) gtk_widget_destroy(dialog);
+
+  if(hl->iraf_col==COLOR_R){
+    hl->qp_b[hl->iraf_hdsql_r].ql_1st=!hl->qp_r[hl->iraf_hdsql_r].ql_1st;
+    if(hl->qp_r[hl->iraf_hdsql_r].ge_cnt){
+      hl->qp_b[hl->iraf_hdsql_r].ge_cnt=FALSE;
+    }
+    if(hl->qp_r[hl->iraf_hdsql_r].ge_stx > hl->qp_r[hl->iraf_hdsql_r].ge_edx){
+      tmp_x=hl->qp_r[hl->iraf_hdsql_r].ge_stx;
+      hl->qp_r[hl->iraf_hdsql_r].ge_stx=hl->qp_r[hl->iraf_hdsql_r].ge_edx;
+      hl->qp_r[hl->iraf_hdsql_r].ge_edx=tmp_x;
+    }
+  }
+  else{
+    hl->qp_r[hl->iraf_hdsql_b].ql_1st=!hl->qp_b[hl->iraf_hdsql_b].ql_1st;
+    if(hl->qp_b[hl->iraf_hdsql_b].ge_cnt){
+      hl->qp_r[hl->iraf_hdsql_b].ge_cnt=FALSE;
+    }
+    if(hl->qp_b[hl->iraf_hdsql_b].ge_stx > hl->qp_b[hl->iraf_hdsql_b].ge_edx){
+      tmp_x=hl->qp_b[hl->iraf_hdsql_b].ge_stx;
+      hl->qp_b[hl->iraf_hdsql_b].ge_stx=hl->qp_b[hl->iraf_hdsql_b].ge_edx;
+      hl->qp_b[hl->iraf_hdsql_b].ge_edx=tmp_x;
+    }
+  }
 }
 
 void ql_param_red(GtkWidget *w, gpointer gdata){

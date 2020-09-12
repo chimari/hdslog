@@ -23,7 +23,6 @@ static void refresh_table ();
 gboolean create_lock ();
 static void remove_lock ();
 static void wait_lock ();
-static void save_note ();
 static void load_note ();
 
 void select_color();
@@ -57,6 +56,8 @@ const SetupEntry setups[] = {
   {"NIRa","RED",   25200}, 
   {"Ha",  "MIRROR",0}
 };
+
+
 
 void get_hst_day(gint *year, gint *mon, gint *mday){
   struct tm t, *lt;
@@ -272,10 +273,10 @@ void cc_auto_red (GtkWidget * widget, gpointer gdata)
   typHLOG *hl=(typHLOG *)gdata;
 
   hl->auto_red=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-  if(hl->auto_red){
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue),
-				 FALSE);
-  }
+  //if(hl->auto_red){
+  //  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_blue),
+  //				 FALSE);
+  //}
 }
 
 void cc_auto_blue (GtkWidget * widget, gpointer gdata)
@@ -283,10 +284,10 @@ void cc_auto_blue (GtkWidget * widget, gpointer gdata)
   typHLOG *hl=(typHLOG *)gdata;
 
   hl->auto_blue=gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
-  if(hl->auto_blue){
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red),
-				 FALSE);
-  }
+  //if(hl->auto_blue){
+  //  gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(hl->check_auto_red),
+  //				 FALSE);
+  //}
 }
 
 void cc_get_combo_box (GtkWidget *widget,  gint * gdata)
@@ -380,6 +381,7 @@ static void refresh_table (GtkWidget *widget, gpointer gdata)
     hl->frame[i].note.txt=NULL;
     hl->frame[i].note.time=0;
     hl->frame[i].note.auto_fl=FALSE;
+    hl->frame[i].note.cnt=-1;
   }
   
   hl->num=0;
@@ -454,7 +456,7 @@ static void wait_lock (typHLOG *hl){
 
 
 
-static void save_note (typHLOG *hl)
+void save_note (typHLOG *hl)
 {
   ConfigFile *cfgfile;
   gchar *filename;
@@ -478,6 +480,10 @@ static void save_note (typHLOG *hl)
 			   "time",hl->frame[i].note.time);
       }
     }
+    if(hl->frame[i].note.cnt>0){
+      xmms_cfg_write_int(cfgfile, hl->frame[i].id,
+			 "cnt",hl->frame[i].note.cnt);
+    }
   }
 
   xmms_cfg_write_file(cfgfile, filename);
@@ -493,7 +499,7 @@ static void load_note (typHLOG *hl,gboolean force_fl)
   ConfigFile *cfgfile;
   gchar filename[256];
   gchar *c_buf;
-  gint i, i_buf;
+  gint i, i_buf, i_buf2;
   struct stat statbuf;
 
   if(!hl->upd_flag) return;
@@ -531,6 +537,14 @@ static void load_note (typHLOG *hl,gboolean force_fl)
 	    }
 
 	  }
+	}
+      }
+      if(xmms_cfg_read_int(cfgfile, hl->frame[i].id,
+			   "cnt",&i_buf2)){
+	hl->frame[i].note.cnt=i_buf2;
+	hl->frame[i].note.time=i_buf;
+	if( (hl->frame[i].note.cnt>0) && (!force_fl)){
+	  hl->frame[i].note.auto_fl=TRUE;
 	}
       }
     }
@@ -877,6 +891,8 @@ void update_frame_tree(typHLOG *hl){
   GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(hl->frame_tree));
   GtkTreeSelection *selection = gtk_tree_view_get_selection (GTK_TREE_VIEW(hl->frame_tree));
 
+  if(Flag_tree_editing) return;
+
 #ifdef DEBUG
   fprintf(stderr, "Start Load\n");
 #endif
@@ -902,6 +918,9 @@ void update_frame_tree(typHLOG *hl){
 	if(hl->frame[i].note.auto_fl){
 	  gtk_list_store_set(GTK_LIST_STORE(model), &iter, 
 			     COLUMN_FRAME_NOTE, hl->frame[i].note.txt, 
+			     -1);
+	  gtk_list_store_set(GTK_LIST_STORE(model), &iter, 
+			     COLUMN_FRAME_COUNT, hl->frame[i].note.cnt, 
 			     -1);
 	  hl->frame[i].note.auto_fl=FALSE;
 	}
@@ -936,13 +955,25 @@ void update_frame_tree(typHLOG *hl){
 	 && (strcmp(hl->frame[hl->num-1].name,"COMPARISON")!=0)
 	 && (strcmp(hl->frame[hl->num-1].name,"BIAS")!=0)
 	 && (strcmp(hl->frame[hl->num-1].name,"DARK")!=0)){
-	if(hl->auto_red){
-	  frame_tree_select_last(hl);
-	  ql_obj_red(NULL, (gpointer)hl);
+	if(hl->qp_r[hl->iraf_hdsql_r].ql_1st){
+	  if(hl->auto_red){
+	    frame_tree_select_last(hl);
+	    ql_obj_red(NULL, (gpointer)hl);
+	  }
+	  if(hl->auto_blue){
+	    frame_tree_select_last(hl);
+	    ql_obj_blue(NULL, (gpointer)hl);
+	  }
 	}
-	else if(hl->auto_blue){
-	  frame_tree_select_last(hl);
-	  ql_obj_blue(NULL, (gpointer)hl);
+	else{
+	  if(hl->auto_blue){
+	    frame_tree_select_last(hl);
+	    ql_obj_blue(NULL, (gpointer)hl);
+	  }
+	  if(hl->auto_red){
+	    frame_tree_select_last(hl);
+	    ql_obj_red(NULL, (gpointer)hl);
+	  }
 	}
       }
     }
@@ -1232,6 +1263,9 @@ void WriteLog(typHLOG *hl, FILE *fp){
     }
     if(hl->adc_flag){
       fprintf(fp," %-3s",hl->frame[i].adc);
+    }
+    if(hl->frame[i].note.cnt>0){
+      fprintf(fp,"  %de-",hl->frame[i].note.cnt);
     }
     if(hl->frame[i].note.txt){
       fprintf(fp,"  %s\n",hl->frame[i].note.txt);
@@ -1527,6 +1561,8 @@ void do_read_log(GtkWidget *widget, gpointer gdata){
     gtk_tree_model_get_iter (model, &iter, path);
     gtk_list_store_set (GTK_LIST_STORE(model), &iter,
 			COLUMN_FRAME_NOTE, hl->frame[i_frm].note.txt, -1);
+    gtk_list_store_set (GTK_LIST_STORE(model), &iter,
+			COLUMN_FRAME_COUNT, hl->frame[i_frm].note.cnt, -1);
     gtk_tree_path_next(path);
   }
   gtk_tree_path_free(path);
@@ -3457,6 +3493,7 @@ int main(int argc, char* argv[]){
     hl->frame[i].note.txt=NULL;
     hl->frame[i].note.time=0;
     hl->frame[i].note.auto_fl=FALSE;
+    hl->frame[i].note.cnt=-1;
   }
 
   for(i=0;i<MAX_MAIL;i++){
@@ -3529,33 +3566,41 @@ int main(int argc, char* argv[]){
     hl->flag_thar_red[i]=FALSE;
     hl->flag_thar_blue[i]=FALSE;
 
-    hl->qp_r[i].sc_inte=TRUE;
+    hl->qp_r[i].sc_inte=FALSE;
     hl->qp_r[i].sc_resi=FALSE;
-    hl->qp_r[i].sc_edit=TRUE;
-    hl->qp_r[i].sc_fitt=TRUE;
-    hl->qp_r[i].ap_inte=TRUE;
+    hl->qp_r[i].sc_edit=FALSE;
+    hl->qp_r[i].sc_fitt=FALSE;
+    hl->qp_r[i].ap_inte=FALSE;
     hl->qp_r[i].ap_resi=TRUE;
-    hl->qp_r[i].ap_edit=TRUE;
+    hl->qp_r[i].ap_edit=FALSE;
     hl->qp_r[i].ap_llim=-20;
     hl->qp_r[i].ap_ulim=+20;
-    hl->qp_r[i].is_plot=TRUE;
+    hl->qp_r[i].is_plot=FALSE;
     hl->qp_r[i].is_stx=-20;
     hl->qp_r[i].is_edx=+20;
     hl->qp_r[i].sp_line=5;
+    hl->qp_r[i].ql_1st=TRUE;
+    hl->qp_r[i].ge_cnt=FALSE;
+    hl->qp_r[i].ge_stx=1900;
+    hl->qp_r[i].ge_edx=2100;
 
-    hl->qp_b[i].sc_inte=TRUE;
+    hl->qp_b[i].sc_inte=FALSE;
     hl->qp_b[i].sc_resi=FALSE;
-    hl->qp_b[i].sc_edit=TRUE;
-    hl->qp_b[i].sc_fitt=TRUE;
-    hl->qp_b[i].ap_inte=TRUE;
+    hl->qp_b[i].sc_edit=FALSE;
+    hl->qp_b[i].sc_fitt=FALSE;
+    hl->qp_b[i].ap_inte=FALSE;
     hl->qp_b[i].ap_resi=TRUE;
-    hl->qp_b[i].ap_edit=TRUE;
+    hl->qp_b[i].ap_edit=FALSE;
     hl->qp_b[i].ap_llim=-20;
     hl->qp_b[i].ap_ulim=+20;
-    hl->qp_b[i].is_plot=TRUE;
+    hl->qp_b[i].is_plot=FALSE;
     hl->qp_b[i].is_stx=-20;
     hl->qp_b[i].is_edx=+20;
     hl->qp_b[i].sp_line=5;
+    hl->qp_b[i].ql_1st=FALSE;
+    hl->qp_b[i].ge_cnt=FALSE;
+    hl->qp_b[i].ge_stx=1900;
+    hl->qp_b[i].ge_edx=2100;
   }
   
   hl->i_reduced=0;
@@ -3564,7 +3609,10 @@ int main(int argc, char* argv[]){
   hl->remote_host=g_strdup(REMOTE_HOST);
   hl->remote_user=g_strdup(REMOTE_USER);
   hl->remote_pass=NULL;
-  hl->remote_dir=g_strdup(REMOTE_DIR);
+  hl->remote_dir=g_strconcat(REMOTE_DIR,
+			     hl->uname,
+			     G_DIR_SEPARATOR_S,
+			     NULL);
   
   gtk_init(&argc, &argv);
 
@@ -3578,7 +3626,6 @@ int main(int argc, char* argv[]){
   gtk_window_set_default_icon(icon);
 
   gui_init(hl);
-
   hl->scanning_flag=FALSE;
   if(hl->upd_flag){
     hl->timer=g_timeout_add(CHECK_INTERVAL, 
