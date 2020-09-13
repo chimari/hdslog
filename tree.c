@@ -519,6 +519,9 @@ static void frame_tree_add_columns (typHLOG *hl,
   renderer = gtk_cell_renderer_text_new ();
   g_object_set_data (G_OBJECT (renderer), "column", 
   		     GINT_TO_POINTER (COLUMN_FRAME_COUNT));
+  g_object_set (renderer,
+                "editable", TRUE,
+                NULL);
   column=gtk_tree_view_column_new_with_attributes (NULL,
 						   renderer,
 						   "markup", 
@@ -531,7 +534,12 @@ static void frame_tree_add_columns (typHLOG *hl,
 						   "background-gdk", COLUMN_FRAME_COLBG,
 #endif					   
 						   NULL);
-  gtkut_tree_view_column_set_markup(column, "Count");
+  gtkut_tree_view_column_set_markup(column, "<i>e</i><sup>-</sup>");
+  g_signal_connect (renderer, "editing_started",
+		    G_CALLBACK (cell_editing), NULL);
+  g_signal_connect (renderer, "editing_canceled",
+		    G_CALLBACK (cell_canceled), NULL);
+  g_signal_connect (renderer, "edited", G_CALLBACK (cell_edited), hl);
   gtk_tree_view_column_set_cell_data_func(column, renderer,
 					  frame_tree_cell_data_func,
 					  GUINT_TO_POINTER(COLUMN_FRAME_COUNT),
@@ -920,7 +928,7 @@ void frame_tree_cell_data_func(GtkTreeViewColumn *col ,
 
   case COLUMN_FRAME_COUNT:
     if(i_buf>0){
-        str=g_strdup_printf("%d<i>e</i><sup>-</sup>",i_buf);
+        str=g_strdup_printf("%d",i_buf);
     }
     else{
       str=NULL;
@@ -1021,6 +1029,26 @@ static void cell_edited (GtkCellRendererText *cell,
       hl->frame[i].note.txt=g_strdup(new_text);
       gtk_list_store_set (GTK_LIST_STORE (model), &iter, column,
 			  hl->frame[i].note.txt, -1);
+      
+      if(hl->frame[i].note.auto_fl){
+	hl->frame[i].note.auto_fl=FALSE;
+      }
+      else{
+	hl->frame[i].note.time=time(NULL);
+      }
+    }
+    break;
+
+  case COLUMN_FRAME_COUNT:
+    {
+      gint i;
+      gchar *old_text;
+      
+      gtk_tree_model_get (model, &iter, COLUMN_FRAME_NUMBER, &i, -1);
+      
+      hl->frame[i].note.cnt=atoi(new_text);
+      gtk_list_store_set (GTK_LIST_STORE (model), &iter, column,
+			  hl->frame[i].note.cnt, -1);
       
       if(hl->frame[i].note.auto_fl){
 	hl->frame[i].note.auto_fl=FALSE;
