@@ -3188,6 +3188,10 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
       break;
     }
   }
+  else{
+    gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (fdialog), 
+					 hl->wdir);
+  }
 
   switch(mode){
   case OPEN_AP:
