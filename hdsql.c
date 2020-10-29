@@ -322,7 +322,7 @@ gchar *get_refname_db(gchar *fp_file){
 }
 
 void set_setname(typHLOG *hl, gint i_sel){
-  gchar *bin, *setup;
+  gchar *bin, *tbin, *setup;
 
   setup=get_setname_short(hl, i_sel);
 
@@ -337,6 +337,11 @@ void set_setname(typHLOG *hl, gint i_sel){
       hl->setname_red[hl->iraf_hdsql_r]=g_strconcat(setup,
 						    bin,
 						    NULL);
+      tbin=g_strdup_printf("?x%d", 
+			  hl->frame[i_sel].bin2);
+      hl->tharname_red[hl->iraf_hdsql_r]=g_strconcat(setup,
+						     tbin,
+						     NULL);
       //}
       //else{
       //hl->setname_red[hl->iraf_hdsql_r]=NULL;
@@ -353,12 +358,19 @@ void set_setname(typHLOG *hl, gint i_sel){
       hl->setname_blue[hl->iraf_hdsql_b]=g_strconcat(setup,
 						     bin,
 						     NULL);
+      tbin=g_strdup_printf("?x%d", 
+			  hl->frame[i_sel].bin2);
+      hl->tharname_blue[hl->iraf_hdsql_r]=g_strconcat(setup,
+						      tbin,
+						      NULL);
       //}
       //else{
       //hl->setname_blue[hl->iraf_hdsql_b]=NULL;
       //}
   }
 
+  g_free(bin);
+  g_free(tbin);
   g_free(setup);
 }
 
@@ -1937,11 +1949,11 @@ void iraf_ap(typHLOG *hl, gint i_sel, gint i_file){
       hl->entry_ap_id = gtk_entry_new ();
       gtk_box_pack_start(GTK_BOX(hbox),hl->entry_ap_id,FALSE,FALSE,0);
       gtk_entry_set_width_chars(GTK_ENTRY(hl->entry_ap_id),120);
-      tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 width=10 radius=30 recenter+ resize+",
+      tmp=g_strdup_printf("apall %s output=%s.ec t_order=4 t_niterate=5 width=15 radius=30 recenter+ resize+",
 			  hl->file_write, hl->file_write);
       gtk_entry_set_text(GTK_ENTRY(hl->entry_ap_id), tmp);
       g_free(tmp);
-      gtk_editable_set_editable(GTK_EDITABLE(hl->entry_ap_id),FALSE);
+      gtk_editable_set_editable(GTK_EDITABLE(hl->entry_ap_id),TRUE);
 
 #ifdef USE_GTK3
       button=gtkut_button_new_from_icon_name("work","document-open");
@@ -3215,7 +3227,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
   case OPEN_THAR:
     tmp=g_strdup_printf("ThAr%s%s*.fits",
 			(hl->iraf_col==COLOR_R) ? 
-			hl->setname_red[hl->iraf_hdsql_r] : hl->setname_blue[hl->iraf_hdsql_b],
+			hl->tharname_red[hl->iraf_hdsql_r] : hl->tharname_blue[hl->iraf_hdsql_b],
 			(hl->iraf_col==COLOR_R) ? "R" : "B");
     my_file_chooser_add_filter(fdialog,"Wavelength Reference File",
 			       tmp,NULL);
@@ -3235,7 +3247,7 @@ void hdslog_OpenFile(typHLOG *hl, guint mode){
   case REF2_THAR:
     tmp=g_strdup_printf("ecThAr%s%s*",
 			(hl->iraf_col==COLOR_R) ? 
-			hl->setname_red[hl->iraf_hdsql_r] : hl->setname_blue[hl->iraf_hdsql_b],
+			hl->tharname_red[hl->iraf_hdsql_r] : hl->tharname_blue[hl->iraf_hdsql_b],
 			(hl->iraf_col==COLOR_R) ? "R" : "B");
     my_file_chooser_add_filter(fdialog,"Wavelength Database File",
 			       tmp,NULL);

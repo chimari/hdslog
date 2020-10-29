@@ -545,6 +545,8 @@ struct _typHLOG{
   GtkWidget *frame_ql_blue;
   gchar *setname_red[NUM_SET];
   gchar *setname_blue[NUM_SET];
+  gchar *tharname_red[NUM_SET];
+  gchar *tharname_blue[NUM_SET];
 
   GtkWidget *check_ap_red;
   GtkWidget *check_ap_blue;
