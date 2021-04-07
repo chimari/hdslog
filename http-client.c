@@ -229,7 +229,8 @@ gpointer thread_get_camz_list(gpointer gdata){
 
   hl->pabort=FALSE;
   
-  http_c_nonssl(hl);
+  //http_c_nonssl(hl);
+  http_c_ssl(hl);
 
   if(hl->ploop) g_main_loop_quit(hl->ploop);
 }

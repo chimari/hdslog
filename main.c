@@ -69,6 +69,7 @@ void get_hst_day(gint *year, gint *mon, gint *mday){
   t.tm_hour=0;
   t.tm_min=0;
   t.tm_sec=0;
+  t.tm_isdst=0;
   
   timer=mktime(&t);
   timer-=20*60*60;

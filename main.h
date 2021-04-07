@@ -56,8 +56,10 @@
 
 #define XGTERM_COM "/usr/local/bin/xgterm -sb -sl 2000 -title %s -e \"cd ~;/usr/local/bin/cl\" &"
 
-#define HTTP_CAMZ_HOST "hds.skr.jp"
-#define HTTP_CAMZ_PATH  "/CamZ"
+#define HTTP_CAMZ_HOST "www.naoj.org"
+#define HTTP_CAMZ_PATH "/Observing/Instruments/HDS/CamZ"
+//#define HTTP_CAMZ_HOST "hds.skr.jp"
+//#define HTTP_CAMZ_PATH  "/CamZ"
 #define HTTP_CAMZ_FILE "hdslog_camz.txt"
 #define HTTP_DLSZ_FILE   "hdslog_http_dlsz.txt"
 
