@@ -142,8 +142,7 @@ void write_msmtprc(){
   filename=g_strconcat(g_get_home_dir(),G_DIR_SEPARATOR_S,
 		       MSMTP_FILE, NULL);
   if(access(filename, F_OK)==0){
-    g_free(filename);
-    return;
+    unlink(filename);
   }
 
   fprintf(stderr," Creating MSMTPRC file, \"%s\" .\n", filename);
